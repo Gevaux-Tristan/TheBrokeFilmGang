@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Broke Film Gang</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <div class="left-panel">
+      <div class="preview-wrapper">
+        <canvas id="previewCanvas"></canvas>
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-zone-content">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p>Drag and drop your image here</p>
+            <span>or click to select</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="right-panel">
+      <img src="logo.svg" alt="The Broke Film Gang" class="app-logo" style="width: 100%; display: block;" />
+      <div class="settings-group">
+        <div class="file-row">
+          <input type="file" id="imageUpload" accept="image/*" style="display:none;" />
+          <button id="customFileBtn" class="download-button" type="button">Upload your photo</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <label for="filmSelect">Film</label>
+        <select id="filmSelect">
+          <optgroup label="Kodak">
+            <option value="kodak_portra_160">Portra 160</option>
+            <option value="kodak_ektar_100">Ektar 100</option>
+            <option value="kodak_gold_200">Gold 200</option>
+            <option value="kodak_colorplus_200">ColorPlus 200</option>
+            <option value="kodak_trix_400">Tri-X 400</option>
+            <option value="kodak_tmax_100">T-Max 100</option>
+          </optgroup>
+          <optgroup label="Agfa">
+            <option value="agfa_vista_200">Vista 200</option>
+            <option value="agfa_precisa_ct_100">Precisa CT 100</option>
+            <option value="agfa_apx_100">APX 100</option>
+            <option value="agfa_ultra_100">Agfacolor Ultra 100</option>
+          </optgroup>
+          <optgroup label="Ilford">
+            <option value="ilford_hp5_plus_400">HP5 Plus 400</option>
+            <option value="ilford_delta_400">Delta 400</option>
+            <option value="ilford_pan_f_plus_50">Pan F Plus 50</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="settings-group">
+        <label for="isoSlider">ISO</label>
+        <div class="iso-row">
+          <input type="range" id="isoSlider" min="0" max="4" value="0" />
+          <span id="isoValue">100</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <label for="contrastSlider">Push & Pull</label>
+        <div class="contrast-row">
+          <input type="range" id="contrastSlider" min="-50" max="30" value="0" />
+        </div>
+      </div>
+      <div class="settings-group">
+        <label for="exposureSlider">Exp.</label>
+        <div class="exposure-row">
+          <input type="range" id="exposureSlider" min="-2" max="2" step="0.01" value="0" />
+        </div>
+      </div>
+      <div class="settings-group bottom-buttons">
+        <button id="downloadBtn" class="download-button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download your negative
+        </button>
+        <button id="resetBtn" class="reset-button" type="button">Reset</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
