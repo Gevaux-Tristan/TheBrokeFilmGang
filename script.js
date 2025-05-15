@@ -171,7 +171,7 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   
   const link = document.createElement("a");
   link.download = "exported.jpg";
-  link.href = exportCanvas.toDataURL("image/jpeg", 0.9);
+  link.href = exportCanvas.toDataURL("image/jpeg", 0.92);
   link.click();
 });
 
@@ -275,11 +275,11 @@ async function loadLUT(url) {
 
 // ISO grain logic
 const isoValues = {
-  100: 0.015,
-  200: 0.045,
-  400: 0.09,
-  800: 0.15,
-  1200: 0.225
+  100: 0.03,
+  200: 0.09,
+  400: 0.18,
+  800: 0.30,
+  1200: 0.45
 };
 let selectedISO = 100;
 let contrastAmount = 0;
