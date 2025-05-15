@@ -167,11 +167,27 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     exportCtx.drawImage(leakImage, 0, 0, exportCanvas.width, exportCanvas.height);
   }
   
-  addGrain(exportCtx, exportCanvas.width, exportCanvas.height, isoValues[selectedISO]);
+  let grainAmountForExport = isoValues[selectedISO];
+  // canvas.width is the current preview width (e.g., max 800 for the dimension that hits the cap first)
+  // fullResImage.width is the original image width for export
+  if (canvas.width > 0 && fullResImage.width > canvas.width) {
+    const resolutionScaleRatio = fullResImage.width / canvas.width;
+    let scaledAmount = isoValues[selectedISO] * Math.sqrt(resolutionScaleRatio);
+    
+    // Cap the scaledAmount. Max current isoValue is 0.30.
+    // A cap around 0.5-0.6 seems reasonable for "very high" grain.
+    const maxGrainAmountCap = 0.5; 
+    scaledAmount = Math.min(scaledAmount, maxGrainAmountCap);
+
+    // Ensure it's not LESS than the base ISO value if cap is hit strangely or ratio is < 1
+    grainAmountForExport = Math.max(scaledAmount, isoValues[selectedISO]);
+  }
+  
+  addGrain(exportCtx, exportCanvas.width, exportCanvas.height, grainAmountForExport);
   
   const link = document.createElement("a");
-  link.download = "exported.png";
-  link.href = exportCanvas.toDataURL("image/png", 1.0); // Utiliser la meilleure qualité PNG
+  link.download = "exported.jpeg"; // Changed to JPEG
+  link.href = exportCanvas.toDataURL("image/jpeg", 0.9); // Changed to JPEG with 90% quality
   link.click();
 });
 

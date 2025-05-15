@@ -67,6 +67,7 @@ body {
   overflow-y: auto;
   max-height: 30vh;
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 .preview-wrapper {
