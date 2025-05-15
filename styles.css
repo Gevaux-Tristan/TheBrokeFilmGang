@@ -76,6 +76,7 @@ body {
   max-height: 30vh;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch; /* Momentum-based scrolling for iOS */
+  z-index: 20; /* Ensure settings panel is above other elements like dropZone */
 }
 
 .preview-wrapper {

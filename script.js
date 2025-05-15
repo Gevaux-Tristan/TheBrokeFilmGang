@@ -17,7 +17,7 @@ const fileNameDisplay = document.getElementById('fileNameDisplay');
 
 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
   dropZone.addEventListener(eventName, preventDefaults, false);
-  document.body.addEventListener(eventName, preventDefaults, false);
+  // document.body.addEventListener(eventName, preventDefaults, false); // Removed to prevent scroll interference
 });
 
 function preventDefaults(e) {
@@ -167,11 +167,24 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
     exportCtx.drawImage(leakImage, 0, 0, exportCanvas.width, exportCanvas.height);
   }
   
-  addGrain(exportCtx, exportCanvas.width, exportCanvas.height, isoValues[selectedISO]);
+  let grainAmountForExport = isoValues[selectedISO];
+  // canvas.width is the current preview width (e.g., max 800 for the dimension that hits the cap first)
+  // fullResImage.width is the original image width for export
+  if (canvas.width > 0 && fullResImage.width > canvas.width) {
+    const resolutionScaleRatio = fullResImage.width / canvas.width;
+    let scaledAmount = isoValues[selectedISO] * Math.sqrt(resolutionScaleRatio);
+    
+    const maxGrainAmountCap = 0.70; // Increased cap from 0.5 to 0.70
+    scaledAmount = Math.min(scaledAmount, maxGrainAmountCap);
+
+    grainAmountForExport = Math.max(scaledAmount, isoValues[selectedISO]);
+  }
+  
+  addGrain(exportCtx, exportCanvas.width, exportCanvas.height, grainAmountForExport);
   
   const link = document.createElement("a");
-  link.download = "exported.jpg";
-  link.href = exportCanvas.toDataURL("image/jpeg", 0.92);
+  link.download = "exported.jpeg"; // Changed to JPEG
+  link.href = exportCanvas.toDataURL("image/jpeg", 0.9); // Changed to JPEG with 90% quality
   link.click();
 });
 
@@ -215,12 +228,6 @@ function applyEffects() {
     applyLUTToImage(imgData.data, lutData);
     ctx.putImageData(imgData, 0, 0);
   }
-
-  // Ajout de l'application de leakImage pour l'aperçu
-  if (leakImage) {
-    ctx.drawImage(leakImage, 0, 0, canvas.width, canvas.height);
-  }
-
   addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
 }
 
@@ -275,11 +282,11 @@ async function loadLUT(url) {
 
 // ISO grain logic
 const isoValues = {
-  100: 0.03,
-  200: 0.09,
-  400: 0.18,
-  800: 0.30,
-  1200: 0.45
+  100: 0.02,
+  200: 0.06,
+  400: 0.12,
+  800: 0.20,
+  1200: 0.30
 };
 let selectedISO = 100;
 let contrastAmount = 0;
