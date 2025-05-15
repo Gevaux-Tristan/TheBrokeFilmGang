@@ -275,11 +275,11 @@ async function loadLUT(url) {
 
 // ISO grain logic
 const isoValues = {
-  100: 0.01,
-  200: 0.03,
-  400: 0.06,
-  800: 0.1,
-  1200: 0.15
+  100: 0.015,
+  200: 0.045,
+  400: 0.09,
+  800: 0.15,
+  1200: 0.225
 };
 let selectedISO = 100;
 let contrastAmount = 0;
