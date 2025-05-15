@@ -170,8 +170,8 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   addGrain(exportCtx, exportCanvas.width, exportCanvas.height, isoValues[selectedISO]);
   
   const link = document.createElement("a");
-  link.download = "exported.png";
-  link.href = exportCanvas.toDataURL("image/png", 1.0); // Utiliser la meilleure qualité PNG
+  link.download = "exported.jpg";
+  link.href = exportCanvas.toDataURL("image/jpeg", 0.9);
   link.click();
 });
 
@@ -215,6 +215,12 @@ function applyEffects() {
     applyLUTToImage(imgData.data, lutData);
     ctx.putImageData(imgData, 0, 0);
   }
+
+  // Ajout de l'application de leakImage pour l'aperçu
+  if (leakImage) {
+    ctx.drawImage(leakImage, 0, 0, canvas.width, canvas.height);
+  }
+
   addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
 }
 
