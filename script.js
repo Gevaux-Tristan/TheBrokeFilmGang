@@ -170,8 +170,8 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   addGrain(exportCtx, exportCanvas.width, exportCanvas.height, isoValues[selectedISO]);
   
   const link = document.createElement("a");
-  link.download = "exported.jpg";
-  link.href = exportCanvas.toDataURL("image/jpeg", 0.92);
+  link.download = "exported.png";
+  link.href = exportCanvas.toDataURL("image/png", 1.0); // Utiliser la meilleure qualité PNG
   link.click();
 });
 
@@ -215,12 +215,6 @@ function applyEffects() {
     applyLUTToImage(imgData.data, lutData);
     ctx.putImageData(imgData, 0, 0);
   }
-
-  // Ajout de l'application de leakImage pour l'aperçu
-  if (leakImage) {
-    ctx.drawImage(leakImage, 0, 0, canvas.width, canvas.height);
-  }
-
   addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
 }
 
@@ -275,11 +269,11 @@ async function loadLUT(url) {
 
 // ISO grain logic
 const isoValues = {
-  100: 0.03,
-  200: 0.09,
-  400: 0.18,
-  800: 0.30,
-  1200: 0.45
+  100: 0.01,
+  200: 0.03,
+  400: 0.06,
+  800: 0.1,
+  1200: 0.15
 };
 let selectedISO = 100;
 let contrastAmount = 0;
