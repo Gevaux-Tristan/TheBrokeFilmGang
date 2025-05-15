@@ -244,7 +244,8 @@ const blackAndWhiteLUTs = [
   'kodak_tmax_100',
   'kodak_tmax_3200',
   'kodak_tmax_400',
-  'kodak_trix_400'
+  'kodak_trix_400',
+  'CINECOLOR_CLASSIC_NOIR'
 ];
 
 async function loadLUT(url) {
