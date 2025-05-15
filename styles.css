@@ -13,20 +13,28 @@
   --danger-color: #c62828;
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   margin: 0;
   padding: 0;
   background: var(--background-color);
   font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: var(--text-color);
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   line-height: 1.5;
 }
 
 .app-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
   gap: 0;
   padding: 0;
   max-width: 100vw;
@@ -55,7 +63,7 @@ body {
   padding: 24px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 28px;
   align-items: flex-start;
   justify-content: flex-start;
   border-left: none;
@@ -67,7 +75,7 @@ body {
   overflow-y: auto;
   max-height: 30vh;
   box-sizing: border-box;
-  -webkit-overflow-scrolling: touch;
+  -webkit-overflow-scrolling: touch; /* Momentum-based scrolling for iOS */
 }
 
 .preview-wrapper {
@@ -188,13 +196,14 @@ select:focus {
 /* --- SLIDERS FIDÈLES FIGMA, CROSS-BROWSER --- */
 input[type="range"] {
   width: 100%;
-  height: 32px;
+  height: 40px;
   background: transparent;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
+  pointer-events: none; /* Make track non-interactive by default (for mobile) */
 }
 /* Webkit (Chrome, Safari) */
 input[type="range"]::-webkit-slider-runnable-track {
@@ -214,6 +223,7 @@ input[type="range"]::-webkit-slider-thumb {
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
+  pointer-events: auto; /* Ensure thumb is interactive */
 }
 input[type="range"]:focus::-webkit-slider-thumb {
   outline: none;
@@ -237,6 +247,7 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
+  pointer-events: auto; /* Ensure thumb is interactive */
 }
 input[type="range"]:focus::-moz-range-thumb {
   outline: none;
@@ -264,6 +275,7 @@ input[type="range"]::-ms-thumb {
   box-shadow: none;
   transition: background 0.2s;
   margin-top: 0;
+  pointer-events: auto; /* Ensure thumb is interactive */
 }
 input[type="range"]:focus::-ms-thumb {
   outline: none;
@@ -399,6 +411,7 @@ option {
     border-left: 1.5px solid #e0e3f7;
     border-top: none;
     padding: 32px 48px 24px 48px;
+    overflow-y: auto;
   }
 
   .preview-wrapper {
@@ -417,5 +430,9 @@ option {
   .app-logo {
     width: 100%;
     max-width: 100%;
+  }
+
+  input[type="range"] {
+    pointer-events: auto; /* Revert to full interactivity on desktop */
   }
 }
