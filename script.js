@@ -296,8 +296,7 @@ function applyEffects(immediate = false) {
 
   // Appliquer le flou optique avec une qualité adaptée au mobile
   if (blurAmount > 0) {
-    const radius = (blurAmount / 100) * (isMobile ? 6 : 8);
-    applyLensBlur(ctx, canvas.width, canvas.height, radius);
+    applyLensBlur(ctx, canvas.width, canvas.height, blurAmount);
   }
   
   // Ajouter le grain avec une intensité adaptée au mobile
@@ -592,65 +591,103 @@ function applyLUTToImage(data, lut) {
 function applyLensBlur(ctx, width, height, radius) {
   if (radius <= 0) return;
 
-  const imgData = ctx.getImageData(0, 0, width, height);
-  const pixels = imgData.data;
-  const tempPixels = new Uint8ClampedArray(pixels);
+  // Optimisation : réduire la taille du canvas pour le flou
+  const scale = isMobile ? 0.5 : 0.75;
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width * scale;
+  tempCanvas.height = height * scale;
+  const tempCtx = tempCanvas.getContext('2d');
+
+  // Copier l'image dans le canvas temporaire réduit
+  tempCtx.scale(scale, scale);
+  tempCtx.drawImage(ctx.canvas, 0, 0);
+  tempCtx.scale(1/scale, 1/scale);
+
+  // Appliquer plusieurs passes de flou box pour approximer un flou gaussien
+  const iterations = 3;
+  const boxSize = Math.floor(radius * scale / iterations);
   
-  // Optimiser la taille du noyau
-  const kernelSize = Math.ceil(radius) * 2 + 1;
-  const kernel = [];
-  const sigma = radius / 2;
-  const twoSigmaSquare = 2 * sigma * sigma;
-  let kernelSum = 0;
-  
-  // Créer un noyau de flou plus efficace
-  for (let y = -radius; y <= radius; y++) {
-    for (let x = -radius; x <= radius; x++) {
-      const distance = Math.sqrt(x * x + y * y);
-      if (distance <= radius) {
-        const weight = Math.exp(-(distance * distance) / twoSigmaSquare);
-        kernel.push({ x, y, weight });
-        kernelSum += weight;
-      }
-    }
-  }
-  
-  // Normaliser le noyau
-  kernel.forEach(k => k.weight /= kernelSum);
-  
-  // Appliquer le flou avec une meilleure gestion des bords
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      let r = 0, g = 0, b = 0, a = pixels[(y * width + x) * 4 + 3];
-      let weightSum = 0;
+  // Fonction de flou box optimisée
+  function boxBlur(ctx, w, h, r) {
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const pixels = imgData.data;
+    const temp = new Uint8ClampedArray(pixels.length);
+    
+    // Passe horizontale
+    const div = 2 * r + 1;
+    for (let y = 0; y < h; y++) {
+      let sum = [0, 0, 0];
+      const row = y * w * 4;
       
-      kernel.forEach(k => {
-        const px = Math.min(Math.max(x + k.x, 0), width - 1);
-        const py = Math.min(Math.max(y + k.y, 0), height - 1);
-        const i = (py * width + px) * 4;
+      // Initialiser la somme pour la première fenêtre
+      for (let i = -r; i <= r; i++) {
+        const x = Math.min(Math.max(0, i), w - 1);
+        const pixel = row + x * 4;
+        sum[0] += pixels[pixel];
+        sum[1] += pixels[pixel + 1];
+        sum[2] += pixels[pixel + 2];
+      }
+      
+      // Faire glisser la fenêtre
+      for (let x = 0; x < w; x++) {
+        const pixel = row + x * 4;
+        temp[pixel] = sum[0] / div;
+        temp[pixel + 1] = sum[1] / div;
+        temp[pixel + 2] = sum[2] / div;
+        temp[pixel + 3] = pixels[pixel + 3];
         
-        // Ne pas inclure les pixels transparents dans le calcul
-        if (tempPixels[i + 3] > 0) {
-          const weight = k.weight;
-          r += tempPixels[i] * weight;
-          g += tempPixels[i + 1] * weight;
-          b += tempPixels[i + 2] * weight;
-          weightSum += weight;
-        }
-      });
-      
-      // Normaliser seulement si nous avons des pixels valides
-      if (weightSum > 0) {
-        const i = (y * width + x) * 4;
-        pixels[i] = r / weightSum;
-        pixels[i + 1] = g / weightSum;
-        pixels[i + 2] = b / weightSum;
-        pixels[i + 3] = a; // Conserver l'alpha d'origine
+        // Mettre à jour la somme pour la prochaine fenêtre
+        const remove = Math.max(0, x - r);
+        const add = Math.min(w - 1, x + r + 1);
+        sum[0] += pixels[add * 4] - pixels[remove * 4];
+        sum[1] += pixels[add * 4 + 1] - pixels[remove * 4 + 1];
+        sum[2] += pixels[add * 4 + 2] - pixels[remove * 4 + 2];
       }
     }
+    
+    // Passe verticale
+    for (let x = 0; x < w; x++) {
+      let sum = [0, 0, 0];
+      
+      // Initialiser la somme pour la première fenêtre
+      for (let i = -r; i <= r; i++) {
+        const y = Math.min(Math.max(0, i), h - 1);
+        const pixel = (y * w + x) * 4;
+        sum[0] += temp[pixel];
+        sum[1] += temp[pixel + 1];
+        sum[2] += temp[pixel + 2];
+      }
+      
+      // Faire glisser la fenêtre
+      for (let y = 0; y < h; y++) {
+        const pixel = (y * w + x) * 4;
+        pixels[pixel] = sum[0] / div;
+        pixels[pixel + 1] = sum[1] / div;
+        pixels[pixel + 2] = sum[2] / div;
+        
+        // Mettre à jour la somme pour la prochaine fenêtre
+        const remove = Math.max(0, y - r) * w + x;
+        const add = Math.min(h - 1, y + r + 1) * w + x;
+        sum[0] += temp[add * 4] - temp[remove * 4];
+        sum[1] += temp[add * 4 + 1] - temp[remove * 4 + 1];
+        sum[2] += temp[add * 4 + 2] - temp[remove * 4 + 2];
+      }
+    }
+    
+    ctx.putImageData(imgData, 0, 0);
   }
-  
-  ctx.putImageData(imgData, 0, 0);
+
+  // Appliquer plusieurs passes de flou box
+  for (let i = 0; i < iterations; i++) {
+    boxBlur(tempCtx, tempCanvas.width, tempCanvas.height, boxSize);
+  }
+
+  // Redimensionner et dessiner le résultat final
+  ctx.save();
+  ctx.globalCompositeOperation = 'copy';
+  ctx.scale(1/scale, 1/scale);
+  ctx.drawImage(tempCanvas, 0, 0);
+  ctx.restore();
 }
 
 const customFileBtn = document.getElementById('customFileBtn');
@@ -665,22 +702,36 @@ if (resetBtn) {
     isoSlider.value = 0;
     selectedISO = 100;
     if (isoValueSpan) isoValueSpan.textContent = selectedISO;
+
     contrastSlider.value = 0;
     contrastAmount = 0;
     if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
+
     exposureSlider.value = 0;
     exposureAmount = 0;
     if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
+
+    // Réinitialiser l'intensité du LUT
+    lutIntensitySlider.value = 100;
+    lutIntensity = 1.0;
+    if (intensityValueSpan) intensityValueSpan.textContent = '100%';
+
+    // Réinitialiser le flou
+    blurSlider.value = 0;
+    blurAmount = 0;
+    if (blurValueSpan) blurValueSpan.textContent = '0%';
+
     // Réappliquer le LUT par défaut
     document.getElementById('filmSelect').value = 'kodak_portra_160';
     document.getElementById('filmSelect').dispatchEvent(new Event('change'));
+
     // Réafficher l'image d'origine si elle existe
     if (originalImageDataUrl) {
       const img = new Image();
       img.onload = function () {
         fullResImage = img;
         leakImage = null;
-        applyEffects();
+        applyEffects(true); // Force une mise à jour immédiate
       };
       img.src = originalImageDataUrl;
     } else {
