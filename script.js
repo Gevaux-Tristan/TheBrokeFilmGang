@@ -252,31 +252,41 @@ async function loadLUT(url) {
   try {
     const response = await fetch(url);
     const text = await response.text();
-    console.log("Contenu du LUT:", text);
+    console.log("Chargement du LUT:", url);
     
     // Trouver la taille du LUT
     const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
-    const size = sizeMatch ? parseInt(sizeMatch[1]) : 16;
+    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33; // Par défaut 33 pour les nouveaux LUTs
     
-    // Filtrer les lignes de données
+    // Filtrer les lignes de données et normaliser le format
     const lines = text.split('\n')
       .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
       .map(line => line.trim())
-      .filter(line => line.length > 0);
+      .filter(line => line.length > 0 && line.split(' ').length >= 3);
     
-    // Convertir les lignes en valeurs RGB
+    // Convertir les lignes en valeurs RGB et s'assurer qu'elles sont dans la plage [0,1]
     const values = lines.map(line => {
       const [r, g, b] = line.split(' ').map(parseFloat);
-      return [r, g, b];
+      return [
+        Math.min(1, Math.max(0, r)),
+        Math.min(1, Math.max(0, g)),
+        Math.min(1, Math.max(0, b))
+      ];
     });
 
     // Vérifier si le LUT est en noir et blanc en utilisant la liste
     const lutName = url.split('/').pop().replace('.cube', '');
     const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
     
+    if (!values.length) {
+      console.error("LUT invalide - pas de données:", url);
+      return null;
+    }
+    
+    console.log("LUT chargé avec succès:", url, "taille:", size, "valeurs:", values.length);
     return { size, values, isBlackAndWhite };
   } catch (error) {
-    console.error("Erreur lors du chargement du LUT:", error);
+    console.error("Erreur lors du chargement du LUT:", url, error);
     return null;
   }
 }
