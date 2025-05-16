@@ -280,12 +280,26 @@ function applyEffects(immediate = false) {
   // Create a copy of the original data for independent processing
   const originalData = new Uint8ClampedArray(data);
 
-  // Apply all adjustments independently
+  // Apply LUT first if present
+  if (lutData) {
+    // Create a temporary array for LUT processing
+    const lutProcessedData = new Uint8ClampedArray(data);
+    applyLUTToImage(lutProcessedData, lutData);
+    
+    // Blend LUT result with original based on intensity
+    for (let i = 0; i < data.length; i += 4) {
+      for (let c = 0; c < 3; c++) {
+        data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
+      }
+    }
+  }
+
+  // Apply exposure and contrast
   for (let i = 0; i < data.length; i += 4) {
-    // Start with original values
-    let r = originalData[i] / 255;
-    let g = originalData[i + 1] / 255;
-    let b = originalData[i + 2] / 255;
+    // Start with current values
+    let r = data[i] / 255;
+    let g = data[i + 1] / 255;
+    let b = data[i + 2] / 255;
 
     // Apply exposure
     const exposureFactor = Math.pow(2, exposureAmount);
@@ -305,12 +319,7 @@ function applyEffects(immediate = false) {
     data[i + 2] = b * 255;
   }
 
-  // Apply LUT
-  if (lutData) {
-    applyLUTToImage(data, lutData);
-  }
-
-  // Apply improved blur
+  // Apply blur if needed
   if (blurAmount > 0) {
     applyFastBlur(ctx, canvas.width, canvas.height, blurAmount / 100 * 20);
   }
@@ -517,14 +526,6 @@ function applyLUTToImage(data, lut) {
         const grayValue = (color[0] + color[1] + color[2]) / 3;
         data[i] = data[i + 1] = data[i + 2] = grayValue * 255;
       } else {
-        // Apply only LUT intensity
-        for (let c = 0; c < 3; c++) {
-          const original = data[i + c] / 255;
-          const modified = color[c];
-          const diff = modified - original;
-          color[c] = original + diff * lutIntensity;
-          color[c] = Math.min(1, Math.max(0, color[c]));
-        }
         data[i] = color[0] * 255;
         data[i + 1] = color[1] * 255;
         data[i + 2] = color[2] * 255;
