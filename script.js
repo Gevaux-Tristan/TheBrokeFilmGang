@@ -194,120 +194,11 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   link.click();
 });
 
-function applyEffects() {
-  if (!fullResImage) return;
-  
-  // Définir les dimensions maximales
-  const maxWidth = 800;
-  const maxHeight = 800;
-  
-  // Calculer le ratio d'aspect
-  const aspectRatio = fullResImage.width / fullResImage.height;
-  
-  // Calculer les nouvelles dimensions en préservant le ratio
-  let newWidth = fullResImage.width;
-  let newHeight = fullResImage.height;
-  
-  if (newWidth > maxWidth) {
-    newWidth = maxWidth;
-    newHeight = newWidth / aspectRatio;
-  }
-  
-  if (newHeight > maxHeight) {
-    newHeight = maxHeight;
-    newWidth = newHeight * aspectRatio;
-  }
-  
-  // Mettre à jour la taille du canvas
-  canvas.width = newWidth;
-  canvas.height = newHeight;
-  
-  // Utiliser une meilleure qualité de redimensionnement
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  
-  // Dessiner l'image avec la meilleure qualité possible
-  ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
-  
-  if (lutData) {
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    applyLUTToImage(imgData.data, lutData);
-    ctx.putImageData(imgData, 0, 0);
-  }
-  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
-}
-
-// Liste des LUTs noir et blanc
-const blackAndWhiteLUTs = [
-  'agfa_apx_400',
-  'agfa_apx_100',
-  'ilford_hp5_plus_400',
-  'ilford_delta_400',
-  'ilford_delta_100',
-  'ilford_delta_3200',
-  'ilford_xp2_super_400',
-  'ilford_pan_f_plus_50',
-  'kodak_tmax_100',
-  'kodak_tmax_3200',
-  'kodak_tmax_400',
-  'kodak_trix_400',
-  'CLASSIC_NOIR'
-];
-
-async function loadLUT(url) {
-  try {
-    const response = await fetch(url);
-    const text = await response.text();
-    console.log("Chargement du LUT:", url);
-    
-    // Trouver la taille du LUT
-    const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
-    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33; // Par défaut 33 pour les nouveaux LUTs
-    
-    // Filtrer les lignes de données et normaliser le format
-    const lines = text.split('\n')
-      .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && line.split(' ').length >= 3);
-    
-    // Convertir les lignes en valeurs RGB et s'assurer qu'elles sont dans la plage [0,1]
-    const values = lines.map(line => {
-      const [r, g, b] = line.split(' ').map(parseFloat);
-      return [
-        Math.min(1, Math.max(0, r)),
-        Math.min(1, Math.max(0, g)),
-        Math.min(1, Math.max(0, b))
-      ];
-    });
-
-    // Vérifier si le LUT est en noir et blanc en utilisant la liste
-    const lutName = url.split('/').pop().replace('.cube', '');
-    const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
-    
-    if (!values.length) {
-      console.error("LUT invalide - pas de données:", url);
-      return null;
-    }
-    
-    console.log("LUT chargé avec succès:", url, "taille:", size, "valeurs:", values.length);
-    return { size, values, isBlackAndWhite };
-  } catch (error) {
-    console.error("Erreur lors du chargement du LUT:", url, error);
-    return null;
-  }
-}
-
-// ISO grain logic
-const isoValues = {
-  100: 0.02,
-  200: 0.06,
-  400: 0.12,
-  800: 0.20,
-  1200: 0.30
-};
 let selectedISO = 100;
 let contrastAmount = 0;
 let exposureAmount = 0;
+let lutIntensity = 1.0;
+let blurAmount = 0; // Nouvelle variable pour le flou
 
 // Utiliser le slider ISO du HTML
 const isoSlider = document.getElementById('isoSlider');
@@ -318,6 +209,14 @@ const contrastSlider = document.getElementById('contrastSlider');
 const contrastValueSpan = document.getElementById('contrastValue');
 const exposureSlider = document.getElementById('exposureSlider');
 const exposureValueSpan = document.getElementById('exposureValue');
+
+// Slider d'intensité
+const lutIntensitySlider = document.getElementById('lutIntensitySlider');
+const intensityValueSpan = document.getElementById('intensityValue');
+
+// Nouveau slider de flou
+const blurSlider = document.getElementById('blurSlider');
+const blurValueSpan = document.getElementById('blurValue');
 
 isoSlider.addEventListener('input', () => {
   const steps = [100, 200, 400, 800, 1200];
@@ -338,10 +237,23 @@ exposureSlider.addEventListener('input', () => {
   if (fullResImage) applyEffects();
 });
 
+lutIntensitySlider.addEventListener('input', () => {
+  lutIntensity = parseInt(lutIntensitySlider.value) / 100;
+  if (intensityValueSpan) intensityValueSpan.textContent = lutIntensitySlider.value + '%';
+  if (fullResImage) applyEffects();
+});
+
+blurSlider.addEventListener('input', () => {
+  blurAmount = parseInt(blurSlider.value);
+  if (blurValueSpan) blurValueSpan.textContent = blurAmount + '%';
+  if (fullResImage) applyEffects();
+});
+
 // Initialiser les valeurs affichées
 if (isoValueSpan) isoValueSpan.textContent = selectedISO;
 if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
 if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
+if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 
 function addGrain(ctx, width, height, amount) {
   const imageData = ctx.getImageData(0, 0, width, height);
@@ -446,6 +358,28 @@ function applyLUTToImage(data, lut) {
   const size = lut.size;
   const maxIndex = size - 1;
 
+  // Liste des LUTs qui nécessitent une amplification
+  const lutsToAmplify = [
+    'fuji_pro',
+    'kentmere',
+    'kodak_vision',
+    'lomography_cn',
+    'lomography_analogue_fade',
+    'lomography_crossx_poison',
+    'lomography_dream_shift',
+    'lomography_dust_and_grain',
+    'lomography_night_snap',
+    'lomography_overburn',
+    'lomography_pastel_glow',
+    'lomography_purple_dream',
+    'lomography_sunset_bleach'
+  ];
+
+  // Vérifier si le LUT actuel nécessite une amplification
+  const lutName = lut.values.title || '';
+  const needsAmplification = lutsToAmplify.some(name => lutName.toLowerCase().includes(name.toLowerCase()));
+  const baseAmplificationFactor = needsAmplification ? 1.5 : 1.0;
+
   // Appliquer le LUT avec interpolation trilineaire
   for (let i = 0; i < data.length; i += 4) {
     let r = data[i] / 255;
@@ -463,6 +397,18 @@ function applyLUTToImage(data, lut) {
         const grayValue = (color[0] + color[1] + color[2]) / 3;
         data[i] = data[i + 1] = data[i + 2] = grayValue * 255;
       } else {
+        // Appliquer l'intensité personnalisée
+        for (let c = 0; c < 3; c++) {
+          const original = data[i + c] / 255;
+          const modified = color[c];
+          // Calculer la différence entre l'original et le modifié
+          const diff = modified - original;
+          // Appliquer l'intensité personnalisée et l'amplification de base si nécessaire
+          const finalIntensity = lutIntensity * (needsAmplification ? baseAmplificationFactor : 1.0);
+          color[c] = original + diff * finalIntensity;
+          // S'assurer que la valeur reste dans les limites
+          color[c] = Math.min(1, Math.max(0, color[c]));
+        }
         data[i]     = color[0] * 255;
         data[i + 1] = color[1] * 255;
         data[i + 2] = color[2] * 255;
@@ -533,6 +479,123 @@ function applyLUTToImage(data, lut) {
   }
 }
 
+function applyEffects() {
+  if (!fullResImage) return;
+  
+  // Définir les dimensions maximales
+  const maxWidth = 800;
+  const maxHeight = 800;
+  
+  // Calculer le ratio d'aspect
+  const aspectRatio = fullResImage.width / fullResImage.height;
+  
+  // Calculer les nouvelles dimensions en préservant le ratio
+  let newWidth = fullResImage.width;
+  let newHeight = fullResImage.height;
+  
+  if (newWidth > maxWidth) {
+    newWidth = maxWidth;
+    newHeight = newWidth / aspectRatio;
+  }
+  
+  if (newHeight > maxHeight) {
+    newHeight = maxHeight;
+    newWidth = newHeight * aspectRatio;
+  }
+  
+  // Mettre à jour la taille du canvas
+  canvas.width = newWidth;
+  canvas.height = newHeight;
+  
+  // Créer un canvas temporaire pour le flou
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = newWidth;
+  tempCanvas.height = newHeight;
+  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+  
+  // Utiliser une meilleure qualité de redimensionnement
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  tempCtx.imageSmoothingEnabled = true;
+  tempCtx.imageSmoothingQuality = 'high';
+  
+  // Dessiner l'image sur le canvas temporaire
+  tempCtx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
+  
+  if (lutData) {
+    const imgData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+    applyLUTToImage(imgData.data, lutData);
+    tempCtx.putImageData(imgData, 0, 0);
+  }
+
+  // Appliquer le flou optique si nécessaire
+  if (blurAmount > 0) {
+    const radius = (blurAmount / 100) * 10; // Convertir le pourcentage en rayon de flou (max 10px)
+    applyLensBlur(tempCtx, canvas.width, canvas.height, radius);
+  }
+  
+  // Copier le résultat sur le canvas principal
+  ctx.drawImage(tempCanvas, 0, 0);
+  
+  // Ajouter le grain en dernier
+  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
+}
+
+function applyLensBlur(ctx, width, height, radius) {
+  if (radius <= 0) return;
+
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  // Créer un noyau de flou gaussien
+  const kernel = [];
+  const sigma = radius / 3;
+  const twoSigmaSquare = 2 * sigma * sigma;
+  const kernelSize = Math.ceil(radius) * 2 + 1;
+  let kernelSum = 0;
+  
+  for (let y = -radius; y <= radius; y++) {
+    for (let x = -radius; x <= radius; x++) {
+      const distance = Math.sqrt(x * x + y * y);
+      if (distance <= radius) {
+        const weight = Math.exp(-(distance * distance) / twoSigmaSquare);
+        kernel.push({ x, y, weight });
+        kernelSum += weight;
+      }
+    }
+  }
+  
+  // Normaliser le noyau
+  kernel.forEach(k => k.weight /= kernelSum);
+  
+  // Appliquer le flou
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      
+      kernel.forEach(k => {
+        const px = Math.min(Math.max(x + k.x, 0), width - 1);
+        const py = Math.min(Math.max(y + k.y, 0), height - 1);
+        const i = (py * width + px) * 4;
+        
+        r += tempPixels[i] * k.weight;
+        g += tempPixels[i + 1] * k.weight;
+        b += tempPixels[i + 2] * k.weight;
+        a += tempPixels[i + 3] * k.weight;
+      });
+      
+      const i = (y * width + x) * 4;
+      pixels[i] = r;
+      pixels[i + 1] = g;
+      pixels[i + 2] = b;
+      pixels[i + 3] = a;
+    }
+  }
+  
+  ctx.putImageData(imgData, 0, 0);
+}
+
 const customFileBtn = document.getElementById('customFileBtn');
 if (customFileBtn) {
   customFileBtn.addEventListener('click', () => imageUpload.click());
@@ -571,3 +634,72 @@ if (resetBtn) {
     }
   });
 }
+
+// ISO grain logic
+const isoValues = {
+  100: 0.02,
+  200: 0.06,
+  400: 0.12,
+  800: 0.20,
+  1200: 0.30
+};
+
+async function loadLUT(url) {
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    console.log("Chargement du LUT:", url);
+    
+    // Trouver la taille du LUT
+    const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
+    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33; // Par défaut 33 pour les nouveaux LUTs
+    
+    // Filtrer les lignes de données et normaliser le format
+    const lines = text.split('\n')
+      .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && line.split(' ').length >= 3);
+    
+    // Convertir les lignes en valeurs RGB et s'assurer qu'elles sont dans la plage [0,1]
+    const values = lines.map(line => {
+      const [r, g, b] = line.split(' ').map(parseFloat);
+      return [
+        Math.min(1, Math.max(0, r)),
+        Math.min(1, Math.max(0, g)),
+        Math.min(1, Math.max(0, b))
+      ];
+    });
+
+    // Vérifier si le LUT est en noir et blanc en utilisant la liste
+    const lutName = url.split('/').pop().replace('.cube', '');
+    const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
+    
+    if (!values.length) {
+      console.error("LUT invalide - pas de données:", url);
+      return null;
+    }
+    
+    console.log("LUT chargé avec succès:", url, "taille:", size, "valeurs:", values.length);
+    return { size, values, isBlackAndWhite };
+  } catch (error) {
+    console.error("Erreur lors du chargement du LUT:", url, error);
+    return null;
+  }
+}
+
+// Liste des LUTs noir et blanc
+const blackAndWhiteLUTs = [
+  'agfa_apx_400',
+  'agfa_apx_100',
+  'ilford_hp5_plus_400',
+  'ilford_delta_400',
+  'ilford_delta_100',
+  'ilford_delta_3200',
+  'ilford_xp2_super_400',
+  'ilford_pan_f_plus_50',
+  'kodak_tmax_100',
+  'kodak_tmax_3200',
+  'kodak_tmax_400',
+  'kodak_trix_400',
+  'CLASSIC_NOIR'
+];

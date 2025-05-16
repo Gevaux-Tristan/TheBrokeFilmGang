@@ -194,6 +194,44 @@ select:focus {
   width: 100%;
 }
 
+.exposure-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intensity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intensity-row input[type="range"] {
+  flex: 1;
+}
+
+.intensity-row span {
+  min-width: 50px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.blur-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blur-row input[type="range"] {
+  flex: 1;
+}
+
+.blur-row span {
+  min-width: 50px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- SLIDERS FIDÈLES FIGMA, CROSS-BROWSER --- */
 input[type="range"] {
   width: 100%;
