@@ -218,36 +218,146 @@ const intensityValueSpan = document.getElementById('intensityValue');
 const blurSlider = document.getElementById('blurSlider');
 const blurValueSpan = document.getElementById('blurValue');
 
-isoSlider.addEventListener('input', () => {
+// Variables pour l'optimisation des performances
+let processingEffect = false;
+let pendingEffect = false;
+let lastEffectTime = 0;
+const THROTTLE_DELAY = 50; // Délai minimum entre les mises à jour sur mobile
+
+// Détection mobile
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+// Fonction optimisée pour appliquer les effets
+function applyEffects(immediate = false) {
+  if (!fullResImage) return;
+
+  // Si un effet est en cours de traitement, marquer comme en attente
+  if (processingEffect && !immediate) {
+    pendingEffect = true;
+    return;
+  }
+
+  // Throttling sur mobile
+  if (isMobile && !immediate) {
+    const now = Date.now();
+    if (now - lastEffectTime < THROTTLE_DELAY) {
+      if (!pendingEffect) {
+        pendingEffect = true;
+        setTimeout(() => {
+          pendingEffect = false;
+          applyEffects(true);
+        }, THROTTLE_DELAY);
+      }
+      return;
+    }
+  }
+
+  processingEffect = true;
+  lastEffectTime = Date.now();
+
+  // Définir les dimensions maximales (réduites sur mobile)
+  const maxWidth = isMobile ? 640 : 800;
+  const maxHeight = isMobile ? 640 : 800;
+  
+  // Calculer le ratio d'aspect
+  const aspectRatio = fullResImage.width / fullResImage.height;
+  
+  // Calculer les nouvelles dimensions en préservant le ratio
+  let newWidth = fullResImage.width;
+  let newHeight = fullResImage.height;
+  
+  if (newWidth > maxWidth) {
+    newWidth = maxWidth;
+    newHeight = newWidth / aspectRatio;
+  }
+  
+  if (newHeight > maxHeight) {
+    newHeight = maxHeight;
+    newWidth = newHeight * aspectRatio;
+  }
+  
+  // Mettre à jour la taille du canvas
+  canvas.width = newWidth;
+  canvas.height = newHeight;
+  
+  // Utiliser une meilleure qualité de redimensionnement
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = isMobile ? 'medium' : 'high';
+  
+  // Dessiner l'image originale
+  ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
+
+  // Appliquer le LUT avec une taille de bloc optimisée pour mobile
+  if (lutData) {
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    applyLUTToImage(imgData.data, lutData);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // Appliquer le flou optique avec une qualité adaptée au mobile
+  if (blurAmount > 0) {
+    const radius = (blurAmount / 100) * (isMobile ? 6 : 8);
+    applyLensBlur(ctx, canvas.width, canvas.height, radius);
+  }
+  
+  // Ajouter le grain avec une intensité adaptée au mobile
+  const mobileGrainReduction = isMobile ? 0.7 : 1;
+  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO] * mobileGrainReduction);
+
+  processingEffect = false;
+
+  // Si un effet est en attente, l'appliquer
+  if (pendingEffect) {
+    pendingEffect = false;
+    requestAnimationFrame(() => applyEffects(true));
+  }
+}
+
+// Optimiser les gestionnaires d'événements pour les curseurs
+function createThrottledHandler(callback) {
+  let waiting = false;
+  return function() {
+    if (!waiting) {
+      waiting = true;
+      requestAnimationFrame(() => {
+        callback.apply(this, arguments);
+        waiting = false;
+      });
+    }
+  };
+}
+
+// Appliquer les gestionnaires optimisés aux curseurs
+isoSlider.addEventListener('input', createThrottledHandler(() => {
   const steps = [100, 200, 400, 800, 1200];
   selectedISO = steps[parseInt(isoSlider.value)];
   if (isoValueSpan) isoValueSpan.textContent = selectedISO;
   if (fullResImage) applyEffects();
-});
+}));
 
-contrastSlider.addEventListener('input', () => {
+contrastSlider.addEventListener('input', createThrottledHandler(() => {
   contrastAmount = parseInt(contrastSlider.value);
   if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
   if (fullResImage) applyEffects();
-});
+}));
 
-exposureSlider.addEventListener('input', () => {
+exposureSlider.addEventListener('input', createThrottledHandler(() => {
   exposureAmount = parseFloat(exposureSlider.value);
   if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
   if (fullResImage) applyEffects();
-});
+}));
 
-lutIntensitySlider.addEventListener('input', () => {
+lutIntensitySlider.addEventListener('input', createThrottledHandler(() => {
   lutIntensity = parseInt(lutIntensitySlider.value) / 100;
   if (intensityValueSpan) intensityValueSpan.textContent = lutIntensitySlider.value + '%';
   if (fullResImage) applyEffects();
-});
+}));
 
-blurSlider.addEventListener('input', () => {
+blurSlider.addEventListener('input', createThrottledHandler(() => {
   blurAmount = parseInt(blurSlider.value);
   if (blurValueSpan) blurValueSpan.textContent = blurAmount + '%';
   if (fullResImage) applyEffects();
-});
+}));
 
 // Initialiser les valeurs affichées
 if (isoValueSpan) isoValueSpan.textContent = selectedISO;
@@ -477,58 +587,6 @@ function applyLUTToImage(data, lut) {
       data[i+2] = stretch(data[i+2], minB, maxB);
     }
   }
-}
-
-function applyEffects() {
-  if (!fullResImage) return;
-  
-  // Définir les dimensions maximales
-  const maxWidth = 800;
-  const maxHeight = 800;
-  
-  // Calculer le ratio d'aspect
-  const aspectRatio = fullResImage.width / fullResImage.height;
-  
-  // Calculer les nouvelles dimensions en préservant le ratio
-  let newWidth = fullResImage.width;
-  let newHeight = fullResImage.height;
-  
-  if (newWidth > maxWidth) {
-    newWidth = maxWidth;
-    newHeight = newWidth / aspectRatio;
-  }
-  
-  if (newHeight > maxHeight) {
-    newHeight = maxHeight;
-    newWidth = newHeight * aspectRatio;
-  }
-  
-  // Mettre à jour la taille du canvas
-  canvas.width = newWidth;
-  canvas.height = newHeight;
-  
-  // Utiliser une meilleure qualité de redimensionnement
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  
-  // Dessiner l'image originale
-  ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
-  
-  // Appliquer le LUT
-  if (lutData) {
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    applyLUTToImage(imgData.data, lutData);
-    ctx.putImageData(imgData, 0, 0);
-  }
-
-  // Appliquer le flou optique si nécessaire
-  if (blurAmount > 0) {
-    const radius = (blurAmount / 100) * 8; // Réduire le rayon maximum à 8px pour de meilleures performances
-    applyLensBlur(ctx, canvas.width, canvas.height, radius);
-  }
-  
-  // Ajouter le grain en dernier
-  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
 }
 
 function applyLensBlur(ctx, width, height, radius) {

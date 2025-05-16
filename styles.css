@@ -475,3 +475,63 @@ option {
     pointer-events: auto; /* Revert to full interactivity on desktop */
   }
 }
+
+/* --- OPTIMISATIONS MOBILE --- */
+@media (max-width: 1023px) {
+  .right-panel {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  input[type="range"] {
+    touch-action: none;
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 32px; /* Plus grand sur mobile pour une meilleure accessibilité */
+    height: 32px;
+    transform: scale(1);
+    transition: transform 0.1s ease-out;
+    will-change: transform;
+  }
+
+  input[type="range"]:active::-webkit-slider-thumb {
+    transform: scale(1.1);
+  }
+
+  /* Optimisation du rendu des curseurs sur iOS */
+  input[type="range"]::-webkit-slider-runnable-track {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  /* Désactiver les effets de survol sur mobile */
+  input[type="range"]:hover::-webkit-slider-thumb {
+    background: var(--primary-color);
+  }
+
+  /* Optimisation du scroll */
+  .settings-group {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
+/* Amélioration de la réactivité des boutons sur mobile */
+@media (max-width: 1023px) {
+  button, .download-button, .reset-button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s ease-out;
+  }
+
+  select {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
