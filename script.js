@@ -701,79 +701,42 @@ function applyFastBlur(ctx, width, height, radius) {
   const pixels = imgData.data;
   const tempPixels = new Uint8ClampedArray(pixels);
 
-  // Convert radius to integer and ensure it's odd
-  const size = Math.floor(radius) | 1;
+  // Optimize radius for performance
+  const size = Math.max(1, Math.floor(radius / 2)) | 1; // Reduce radius by half and ensure odd
+  const step = Math.max(1, Math.floor(size / 4)); // Use larger steps for better performance
   const halfSize = Math.floor(size / 2);
 
-  // Box blur algorithm (much faster than Gaussian)
-  // Horizontal pass
-  for (let y = 0; y < height; y++) {
-    let r = 0, g = 0, b = 0;
-    // Initialize first box
-    for (let x = 0; x < size; x++) {
-      const i = (y * width + x) * 4;
-      r += tempPixels[i];
-      g += tempPixels[i + 1];
-      b += tempPixels[i + 2];
-    }
-    
-    // Slide the box
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      pixels[i] = r / size;
-      pixels[i + 1] = g / size;
-      pixels[i + 2] = b / size;
-      
-      // Remove leftmost pixel
-      if (x >= halfSize) {
-        const leftI = (y * width + (x - halfSize)) * 4;
-        r -= tempPixels[leftI];
-        g -= tempPixels[leftI + 1];
-        b -= tempPixels[leftI + 2];
-      }
-      
-      // Add rightmost pixel
-      if (x + halfSize < width) {
-        const rightI = (y * width + (x + halfSize + 1)) * 4;
-        r += tempPixels[rightI];
-        g += tempPixels[rightI + 1];
-        b += tempPixels[rightI + 2];
-      }
-    }
-  }
+  // Single-pass box blur with larger steps
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      let r = 0, g = 0, b = 0;
+      let count = 0;
 
-  // Vertical pass
-  for (let x = 0; x < width; x++) {
-    let r = 0, g = 0, b = 0;
-    // Initialize first box
-    for (let y = 0; y < size; y++) {
-      const i = (y * width + x) * 4;
-      r += pixels[i];
-      g += pixels[i + 1];
-      b += pixels[i + 2];
-    }
-    
-    // Slide the box
-    for (let y = 0; y < height; y++) {
-      const i = (y * width + x) * 4;
-      pixels[i] = r / size;
-      pixels[i + 1] = g / size;
-      pixels[i + 2] = b / size;
-      
-      // Remove topmost pixel
-      if (y >= halfSize) {
-        const topI = ((y - halfSize) * width + x) * 4;
-        r -= pixels[topI];
-        g -= pixels[topI + 1];
-        b -= pixels[topI + 2];
+      // Sample in a box around the current pixel
+      for (let dy = -halfSize; dy <= halfSize; dy += step) {
+        const ny = Math.min(Math.max(y + dy, 0), height - 1);
+        for (let dx = -halfSize; dx <= halfSize; dx += step) {
+          const nx = Math.min(Math.max(x + dx, 0), width - 1);
+          const i = (ny * width + nx) * 4;
+          r += tempPixels[i];
+          g += tempPixels[i + 1];
+          b += tempPixels[i + 2];
+          count++;
+        }
       }
-      
-      // Add bottommost pixel
-      if (y + halfSize < height) {
-        const bottomI = ((y + halfSize + 1) * width + x) * 4;
-        r += pixels[bottomI];
-        g += pixels[bottomI + 1];
-        b += pixels[bottomI + 2];
+
+      // Apply the average to all pixels in the current step block
+      const avgR = Math.round(r / count);
+      const avgG = Math.round(g / count);
+      const avgB = Math.round(b / count);
+
+      for (let dy = 0; dy < step && y + dy < height; dy++) {
+        for (let dx = 0; dx < step && x + dx < width; dx++) {
+          const i = ((y + dy) * width + (x + dx)) * 4;
+          pixels[i] = avgR;
+          pixels[i + 1] = avgG;
+          pixels[i + 2] = avgB;
+        }
       }
     }
   }
