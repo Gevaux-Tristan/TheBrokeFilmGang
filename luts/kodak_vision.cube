@@ -1,4 +1,5 @@
-TITLE "kodak_vision"
+TITLE "Kodak Vision3 250D"
 LUT_3D_SIZE 33
 DOMAIN_MIN 0.0 0.0 0.0
-DOMAIN_MAX 1.0 1.0 1.0 
+DOMAIN_MAX 1.0 1.0 1.0
+# Simulated adjustments: balanced daylight tones, cinematic contrast, skin tone emphasis

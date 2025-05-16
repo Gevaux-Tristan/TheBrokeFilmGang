@@ -1,4 +1,5 @@
-TITLE "lomography_cn"
+TITLE "Lomography CN 800"
 LUT_3D_SIZE 33
 DOMAIN_MIN 0.0 0.0 0.0
-DOMAIN_MAX 1.0 1.0 1.0 
+DOMAIN_MAX 1.0 1.0 1.0
+# Simulated adjustments: strong red bias, warm tones, high saturation
