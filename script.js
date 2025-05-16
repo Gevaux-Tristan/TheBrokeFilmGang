@@ -229,13 +229,11 @@ const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 function applyEffects(immediate = false) {
   if (!fullResImage) return;
 
-  // If an effect is being processed, mark as pending
   if (processingEffect && !immediate) {
     pendingEffect = true;
     return;
   }
 
-  // Throttling on mobile
   if (isMobile && !immediate) {
     const now = Date.now();
     if (now - lastEffectTime < THROTTLE_DELAY) {
@@ -253,14 +251,10 @@ function applyEffects(immediate = false) {
   processingEffect = true;
   lastEffectTime = Date.now();
 
-  // Define maximum dimensions (reduced on mobile)
+  // Define dimensions
   const maxWidth = isMobile ? 640 : 1200;
   const maxHeight = isMobile ? 640 : 1200;
-  
-  // Calculate aspect ratio
   const aspectRatio = fullResImage.width / fullResImage.height;
-  
-  // Calculate new dimensions preserving ratio
   let newWidth = fullResImage.width;
   let newHeight = fullResImage.height;
   
@@ -268,44 +262,39 @@ function applyEffects(immediate = false) {
     newWidth = maxWidth;
     newHeight = newWidth / aspectRatio;
   }
-  
   if (newHeight > maxHeight) {
     newHeight = maxHeight;
     newWidth = newHeight * aspectRatio;
   }
   
-  // Update canvas size
   canvas.width = newWidth;
   canvas.height = newHeight;
   
-  // Use better quality resizing
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  
   // Draw original image
   ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
-
+  
   // Get image data for processing
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imgData.data;
 
-  // Apply exposure and contrast adjustments first
-  const exposureFactor = Math.pow(2, exposureAmount);
-  const contrastFactor = (contrastAmount / 100);
+  // Create a copy of the original data for independent processing
+  const originalData = new Uint8ClampedArray(data);
 
-  // Apply exposure and contrast
+  // Apply all adjustments independently
   for (let i = 0; i < data.length; i += 4) {
-    // Normalize to 0-1
-    let r = data[i] / 255;
-    let g = data[i + 1] / 255;
-    let b = data[i + 2] / 255;
+    // Start with original values
+    let r = originalData[i] / 255;
+    let g = originalData[i + 1] / 255;
+    let b = originalData[i + 2] / 255;
 
     // Apply exposure
+    const exposureFactor = Math.pow(2, exposureAmount);
     r = Math.min(1, Math.max(0, r * exposureFactor));
     g = Math.min(1, Math.max(0, g * exposureFactor));
     b = Math.min(1, Math.max(0, b * exposureFactor));
 
     // Apply contrast
+    const contrastFactor = contrastAmount / 100;
     r = applyContrast(r, contrastFactor);
     g = applyContrast(g, contrastFactor);
     b = applyContrast(b, contrastFactor);
@@ -316,25 +305,21 @@ function applyEffects(immediate = false) {
     data[i + 2] = b * 255;
   }
 
-  // Apply LUT after exposure and contrast
+  // Apply LUT
   if (lutData) {
     applyLUTToImage(data, lutData);
   }
 
-  // Apply optical blur if needed
+  // Apply improved blur
   if (blurAmount > 0) {
-    applySimpleBlur(ctx, canvas.width, canvas.height, blurAmount / 100 * 20);
+    applyFastBlur(ctx, canvas.width, canvas.height, blurAmount / 100 * 20);
   }
-  
-  // Add grain last
-  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
 
-  // Put the processed image data back
-  ctx.putImageData(imgData, 0, 0);
+  // Add grain
+  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
 
   processingEffect = false;
 
-  // If an effect is pending, apply it
   if (pendingEffect) {
     pendingEffect = false;
     requestAnimationFrame(() => applyEffects(true));
@@ -707,3 +692,91 @@ const blackAndWhiteLUTs = [
   'kodak_trix_400',
   'CLASSIC_NOIR'
 ];
+
+// New optimized blur function
+function applyFastBlur(ctx, width, height, radius) {
+  if (radius <= 0) return;
+
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+  const tempPixels = new Uint8ClampedArray(pixels);
+
+  // Convert radius to integer and ensure it's odd
+  const size = Math.floor(radius) | 1;
+  const halfSize = Math.floor(size / 2);
+
+  // Box blur algorithm (much faster than Gaussian)
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    let r = 0, g = 0, b = 0;
+    // Initialize first box
+    for (let x = 0; x < size; x++) {
+      const i = (y * width + x) * 4;
+      r += tempPixels[i];
+      g += tempPixels[i + 1];
+      b += tempPixels[i + 2];
+    }
+    
+    // Slide the box
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = r / size;
+      pixels[i + 1] = g / size;
+      pixels[i + 2] = b / size;
+      
+      // Remove leftmost pixel
+      if (x >= halfSize) {
+        const leftI = (y * width + (x - halfSize)) * 4;
+        r -= tempPixels[leftI];
+        g -= tempPixels[leftI + 1];
+        b -= tempPixels[leftI + 2];
+      }
+      
+      // Add rightmost pixel
+      if (x + halfSize < width) {
+        const rightI = (y * width + (x + halfSize + 1)) * 4;
+        r += tempPixels[rightI];
+        g += tempPixels[rightI + 1];
+        b += tempPixels[rightI + 2];
+      }
+    }
+  }
+
+  // Vertical pass
+  for (let x = 0; x < width; x++) {
+    let r = 0, g = 0, b = 0;
+    // Initialize first box
+    for (let y = 0; y < size; y++) {
+      const i = (y * width + x) * 4;
+      r += pixels[i];
+      g += pixels[i + 1];
+      b += pixels[i + 2];
+    }
+    
+    // Slide the box
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = r / size;
+      pixels[i + 1] = g / size;
+      pixels[i + 2] = b / size;
+      
+      // Remove topmost pixel
+      if (y >= halfSize) {
+        const topI = ((y - halfSize) * width + x) * 4;
+        r -= pixels[topI];
+        g -= pixels[topI + 1];
+        b -= pixels[topI + 2];
+      }
+      
+      // Add bottommost pixel
+      if (y + halfSize < height) {
+        const bottomI = ((y + halfSize + 1) * width + x) * 4;
+        r += pixels[bottomI];
+        g += pixels[bottomI + 1];
+        b += pixels[bottomI + 2];
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+}
