@@ -507,35 +507,25 @@ function applyEffects() {
   canvas.width = newWidth;
   canvas.height = newHeight;
   
-  // Créer un canvas temporaire pour le flou
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = newWidth;
-  tempCanvas.height = newHeight;
-  const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-  
   // Utiliser une meilleure qualité de redimensionnement
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  tempCtx.imageSmoothingEnabled = true;
-  tempCtx.imageSmoothingQuality = 'high';
   
-  // Dessiner l'image sur le canvas temporaire
-  tempCtx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
+  // Dessiner l'image originale
+  ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
   
+  // Appliquer le LUT
   if (lutData) {
-    const imgData = tempCtx.getImageData(0, 0, canvas.width, canvas.height);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     applyLUTToImage(imgData.data, lutData);
-    tempCtx.putImageData(imgData, 0, 0);
+    ctx.putImageData(imgData, 0, 0);
   }
 
   // Appliquer le flou optique si nécessaire
   if (blurAmount > 0) {
-    const radius = (blurAmount / 100) * 10; // Convertir le pourcentage en rayon de flou (max 10px)
-    applyLensBlur(tempCtx, canvas.width, canvas.height, radius);
+    const radius = (blurAmount / 100) * 8; // Réduire le rayon maximum à 8px pour de meilleures performances
+    applyLensBlur(ctx, canvas.width, canvas.height, radius);
   }
-  
-  // Copier le résultat sur le canvas principal
-  ctx.drawImage(tempCanvas, 0, 0);
   
   // Ajouter le grain en dernier
   addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
@@ -548,13 +538,14 @@ function applyLensBlur(ctx, width, height, radius) {
   const pixels = imgData.data;
   const tempPixels = new Uint8ClampedArray(pixels);
   
-  // Créer un noyau de flou gaussien
-  const kernel = [];
-  const sigma = radius / 3;
-  const twoSigmaSquare = 2 * sigma * sigma;
+  // Optimiser la taille du noyau
   const kernelSize = Math.ceil(radius) * 2 + 1;
+  const kernel = [];
+  const sigma = radius / 2;
+  const twoSigmaSquare = 2 * sigma * sigma;
   let kernelSum = 0;
   
+  // Créer un noyau de flou plus efficace
   for (let y = -radius; y <= radius; y++) {
     for (let x = -radius; x <= radius; x++) {
       const distance = Math.sqrt(x * x + y * y);
@@ -569,27 +560,35 @@ function applyLensBlur(ctx, width, height, radius) {
   // Normaliser le noyau
   kernel.forEach(k => k.weight /= kernelSum);
   
-  // Appliquer le flou
+  // Appliquer le flou avec une meilleure gestion des bords
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      let r = 0, g = 0, b = 0, a = 0;
+      let r = 0, g = 0, b = 0, a = pixels[(y * width + x) * 4 + 3];
+      let weightSum = 0;
       
       kernel.forEach(k => {
         const px = Math.min(Math.max(x + k.x, 0), width - 1);
         const py = Math.min(Math.max(y + k.y, 0), height - 1);
         const i = (py * width + px) * 4;
         
-        r += tempPixels[i] * k.weight;
-        g += tempPixels[i + 1] * k.weight;
-        b += tempPixels[i + 2] * k.weight;
-        a += tempPixels[i + 3] * k.weight;
+        // Ne pas inclure les pixels transparents dans le calcul
+        if (tempPixels[i + 3] > 0) {
+          const weight = k.weight;
+          r += tempPixels[i] * weight;
+          g += tempPixels[i + 1] * weight;
+          b += tempPixels[i + 2] * weight;
+          weightSum += weight;
+        }
       });
       
-      const i = (y * width + x) * 4;
-      pixels[i] = r;
-      pixels[i + 1] = g;
-      pixels[i + 2] = b;
-      pixels[i + 3] = a;
+      // Normaliser seulement si nous avons des pixels valides
+      if (weightSum > 0) {
+        const i = (y * width + x) * 4;
+        pixels[i] = r / weightSum;
+        pixels[i + 1] = g / weightSum;
+        pixels[i + 2] = b / weightSum;
+        pixels[i + 3] = a; // Conserver l'alpha d'origine
+      }
     }
   }
   
