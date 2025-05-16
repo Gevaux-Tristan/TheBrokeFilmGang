@@ -168,13 +168,11 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   }
   
   let grainAmountForExport = isoValues[selectedISO];
-  // canvas.width is the current preview width (e.g., max 800 for the dimension that hits the cap first)
-  // fullResImage.width is the original image width for export
   if (canvas.width > 0 && fullResImage.width > canvas.width) {
     const resolutionScaleRatio = fullResImage.width / canvas.width;
     let scaledAmount = isoValues[selectedISO] * Math.sqrt(resolutionScaleRatio);
     
-    const maxGrainAmountCap = 0.70; // Increased cap from 0.5 to 0.70
+    const maxGrainAmountCap = 0.70;
     scaledAmount = Math.min(scaledAmount, maxGrainAmountCap);
 
     grainAmountForExport = Math.max(scaledAmount, isoValues[selectedISO]);
@@ -182,9 +180,17 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   
   addGrain(exportCtx, exportCanvas.width, exportCanvas.height, grainAmountForExport);
   
+  // Générer un nom de fichier unique avec la date, l'heure et le LUT utilisé
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
+  const selectedLUT = document.getElementById('filmSelect').value;
+  const lutName = selectedLUT.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+  const isoStr = selectedISO.toString();
+  const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
+  
   const link = document.createElement("a");
-  link.download = "exported.jpeg"; // Changed to JPEG
-  link.href = exportCanvas.toDataURL("image/jpeg", 0.9); // Changed to JPEG with 90% quality
+  link.download = fileName;
+  link.href = exportCanvas.toDataURL("image/jpeg", 0.9);
   link.click();
 });
 
