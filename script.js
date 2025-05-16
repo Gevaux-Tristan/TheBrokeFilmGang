@@ -330,12 +330,54 @@ if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
 function addGrain(ctx, width, height, amount) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
-  for (let i = 0; i < data.length; i += 4) {
-    const grain = (Math.random() - 0.5) * 255 * amount;
-    data[i] = Math.min(255, Math.max(0, data[i] + grain));
-    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + grain));
-    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + grain));
+  
+  // Fonction pour générer un bruit gaussien
+  function gaussianRandom() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
   }
+  
+  // Créer un buffer de bruit avec cohérence spatiale
+  const noiseBuffer = new Float32Array(width * height);
+  const grainSize = Math.max(1, Math.floor(1 + amount * 2)); // Taille du grain basée sur l'ISO
+  
+  // Remplir le buffer avec du bruit cohérent
+  for(let y = 0; y < height; y += grainSize) {
+    for(let x = 0; x < width; x += grainSize) {
+      const noise = gaussianRandom() * amount;
+      // Appliquer le même bruit à tous les pixels dans la zone du grain
+      for(let dy = 0; dy < grainSize && y + dy < height; dy++) {
+        for(let dx = 0; dx < grainSize && x + dx < width; dx++) {
+          const idx = (y + dy) * width + (x + dx);
+          noiseBuffer[idx] = noise;
+        }
+      }
+    }
+  }
+  
+  // Appliquer le bruit à l'image
+  for(let y = 0; y < height; y++) {
+    for(let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const noise = noiseBuffer[y * width + x] * 255;
+      
+      // Variation de couleur légère pour un grain plus naturel
+      const rNoise = noise * (0.9 + Math.random() * 0.2);
+      const gNoise = noise * (0.9 + Math.random() * 0.2);
+      const bNoise = noise * (0.9 + Math.random() * 0.2);
+      
+      // Ajuster l'intensité du grain en fonction de la luminosité
+      const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
+      const grainStrength = 0.5 + luminance * 0.5; // Plus fort dans les tons moyens
+      
+      data[i] = Math.min(255, Math.max(0, data[i] + rNoise * grainStrength));
+      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + gNoise * grainStrength));
+      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + bNoise * grainStrength));
+    }
+  }
+  
   ctx.putImageData(imageData, 0, 0);
 }
 
