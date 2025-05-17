@@ -225,126 +225,6 @@ const THROTTLE_DELAY = 50; // Délai minimum entre les mises à jour sur mobile
 // Détection mobile
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-// Fonction optimisée pour appliquer les effets
-function applyEffects(immediate = false) {
-  if (!fullResImage) return;
-
-  if (processingEffect && !immediate) {
-    pendingEffect = true;
-    return;
-  }
-
-  processingEffect = true;
-
-  // Define dimensions
-  const maxWidth = isMobile ? 640 : 1200;
-  const maxHeight = isMobile ? 640 : 1200;
-  const aspectRatio = fullResImage.width / fullResImage.height;
-  let newWidth = fullResImage.width;
-  let newHeight = fullResImage.height;
-  
-  if (newWidth > maxWidth) {
-    newWidth = maxWidth;
-    newHeight = newWidth / aspectRatio;
-  }
-  if (newHeight > maxHeight) {
-    newHeight = maxHeight;
-    newWidth = newHeight * aspectRatio;
-  }
-  
-  canvas.width = newWidth;
-  canvas.height = newHeight;
-  
-  // Draw original image
-  ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
-  
-  // Get image data for processing
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imgData.data;
-
-  // Create a copy of the original data for independent processing
-  const originalData = new Uint8ClampedArray(data);
-
-  // Apply LUT first if present
-  if (lutData) {
-    // Create a temporary array for LUT processing
-    const lutProcessedData = new Uint8ClampedArray(data);
-    applyLUTToImage(lutProcessedData, lutData);
-    
-    // Blend LUT result with original based on intensity
-    for (let i = 0; i < data.length; i += 4) {
-      for (let c = 0; c < 3; c++) {
-        data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
-      }
-    }
-  }
-
-  // Apply exposure and contrast
-  for (let i = 0; i < data.length; i += 4) {
-    // Start with current values
-    let r = data[i] / 255;
-    let g = data[i + 1] / 255;
-    let b = data[i + 2] / 255;
-
-    // Apply exposure
-    const exposureFactor = Math.pow(2, exposureAmount);
-    r = Math.min(1, Math.max(0, r * exposureFactor));
-    g = Math.min(1, Math.max(0, g * exposureFactor));
-    b = Math.min(1, Math.max(0, b * exposureFactor));
-
-    // Apply contrast
-    const contrastFactor = contrastAmount / 100;
-    r = applyContrast(r, contrastFactor);
-    g = applyContrast(g, contrastFactor);
-    b = applyContrast(b, contrastFactor);
-
-    // Convert back to 0-255
-    data[i] = r * 255;
-    data[i + 1] = g * 255;
-    data[i + 2] = b * 255;
-  }
-
-  // Put the processed image data back
-  ctx.putImageData(imgData, 0, 0);
-
-  // Apply blur if needed
-  if (blurAmount > 0) {
-    const blurRadius = (blurAmount / 100) * 20;
-    applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
-  }
-
-  // Add grain
-  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
-
-  processingEffect = false;
-
-  if (pendingEffect) {
-    pendingEffect = false;
-    requestAnimationFrame(() => applyEffects(true));
-  }
-}
-
-// Helper function for contrast adjustment
-function applyContrast(x, c) {
-  if (c === 0) return x;
-  if (c > 0) {
-    if (c < 0.3) {
-      return x + (x - 0.5) * c;
-    } else if (c < 0.4) {
-      const lin = x + (x - 0.5) * c;
-      const k = 2;
-      const scurve = 1 / (1 + Math.exp(-k * (x - 0.5)));
-      const t = (c - 0.3) / 0.1;
-      return lin * (1 - t) + scurve * t;
-    } else {
-      const k = 2;
-      return 1 / (1 + Math.exp(-k * (x - 0.5)));
-    }
-  } else {
-    return x + (0.5 - x) * (-c);
-  }
-}
-
 // Optimiser les gestionnaires d'événements pour les curseurs
 function createThrottledHandler(callback) {
   let waiting = false;
@@ -773,4 +653,137 @@ function applyFastBlur(ctx, width, height, radius) {
   }
 
   ctx.putImageData(imgData, 0, 0);
+}
+
+function applyEffects(immediate = false) {
+  if (!fullResImage) return;
+
+  if (processingEffect && !immediate) {
+    pendingEffect = true;
+    return;
+  }
+
+  processingEffect = true;
+
+  // Define dimensions
+  const maxWidth = isMobile ? 640 : 1200;
+  const maxHeight = isMobile ? 640 : 1200;
+  const aspectRatio = fullResImage.width / fullResImage.height;
+  let newWidth = fullResImage.width;
+  let newHeight = fullResImage.height;
+  
+  if (newWidth > maxWidth) {
+    newWidth = maxWidth;
+    newHeight = newWidth / aspectRatio;
+  }
+  if (newHeight > maxHeight) {
+    newHeight = maxHeight;
+    newWidth = newHeight * aspectRatio;
+  }
+  
+  canvas.width = newWidth;
+  canvas.height = newHeight;
+  
+  // Draw original image
+  ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
+  
+  // Get image data for processing
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imgData.data;
+
+  // Create a copy of the original data for independent processing
+  const originalData = new Uint8ClampedArray(data);
+
+  // Apply LUT first if present
+  if (lutData) {
+    // Create a temporary array for LUT processing
+    const lutProcessedData = new Uint8ClampedArray(data);
+    
+    // Apply LUT with proper error handling
+    try {
+      applyLUTToImage(lutProcessedData, lutData);
+      
+      // Blend LUT result with original based on intensity
+      for (let i = 0; i < data.length; i += 4) {
+        for (let c = 0; c < 3; c++) {
+          data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
+        }
+      }
+    } catch (error) {
+      console.error("Error applying LUT:", error);
+      // Fallback to original data if LUT application fails
+      data.set(originalData);
+    }
+  }
+
+  // Apply exposure and contrast
+  if (exposureAmount !== 0 || contrastAmount !== 0) {
+    for (let i = 0; i < data.length; i += 4) {
+      // Start with current values
+      let r = data[i] / 255;
+      let g = data[i + 1] / 255;
+      let b = data[i + 2] / 255;
+
+      // Apply exposure
+      if (exposureAmount !== 0) {
+        const exposureFactor = Math.pow(2, exposureAmount);
+        r = Math.min(1, Math.max(0, r * exposureFactor));
+        g = Math.min(1, Math.max(0, g * exposureFactor));
+        b = Math.min(1, Math.max(0, b * exposureFactor));
+      }
+
+      // Apply contrast
+      if (contrastAmount !== 0) {
+        const contrastFactor = contrastAmount / 100;
+        r = applyContrast(r, contrastFactor);
+        g = applyContrast(g, contrastFactor);
+        b = applyContrast(b, contrastFactor);
+      }
+
+      // Convert back to 0-255
+      data[i] = r * 255;
+      data[i + 1] = g * 255;
+      data[i + 2] = b * 255;
+    }
+  }
+
+  // Put the processed image data back
+  ctx.putImageData(imgData, 0, 0);
+
+  // Apply blur if needed
+  if (blurAmount > 0) {
+    const blurRadius = (blurAmount / 100) * 20;
+    applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
+  }
+
+  // Add grain
+  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
+
+  processingEffect = false;
+
+  if (pendingEffect) {
+    pendingEffect = false;
+    requestAnimationFrame(() => applyEffects(true));
+  }
+}
+
+// Helper function for contrast adjustment
+function applyContrast(x, c) {
+  if (c === 0) return x;
+  if (c > 0) {
+    if (c < 0.3) {
+      return x + (x - 0.5) * c;
+    } else if (c < 0.4) {
+      const lin = x + (x - 0.5) * c;
+      const k = 2;
+      const scurve = 1 / (1 + Math.exp(-k * (x - 0.5)));
+      const t = (c - 0.3) / 0.1;
+      return lin * (1 - t) + scurve * t;
+    } else {
+      const k = 2;
+      return 1 / (1 + Math.exp(-k * (x - 0.5)));
+    }
+  } else {
+    return x + (0.5 - x) * (-c);
+  }
 }
