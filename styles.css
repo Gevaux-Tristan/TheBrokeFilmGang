@@ -251,7 +251,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   background: #131AF9;
   border-radius: 0;
-  margin: 19px 0; /* (40px - 2px) / 2 pour centrer verticalement */
+  margin: 19px 0;
 }
 
 input[type="range"]::-webkit-slider-thumb {
@@ -262,23 +262,11 @@ input[type="range"]::-webkit-slider-thumb {
   background: #131AF9;
   border-radius: 50%;
   border: 2px solid #fff;
-  margin-top: -11px; /* (24px - 2px) / 2 pour centrer sur la ligne */
+  margin-top: -11px;
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
   pointer-events: auto;
-  position: relative;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-input[type="range"]:focus::-webkit-slider-thumb {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-}
-
-input[type="range"]:hover::-webkit-slider-thumb {
-  background: #0d1280;
 }
 
 /* Firefox */
@@ -299,18 +287,6 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: none;
   transition: background 0.2s;
   pointer-events: auto;
-  position: relative;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-input[type="range"]:focus::-moz-range-thumb {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-}
-
-input[type="range"]:hover::-moz-range-thumb {
-  background: #0d1280;
 }
 
 /* IE/Edge */
@@ -333,32 +309,57 @@ input[type="range"]::-ms-thumb {
   transition: background 0.2s;
   margin-top: 0;
   pointer-events: auto;
-  position: relative;
-  top: 50%;
-  transform: translateY(-50%);
 }
 
-input[type="range"]:focus::-ms-thumb {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
+/* Hover et Focus states */
+input[type="range"]:hover::-webkit-slider-thumb {
+  background: #0d1280;
+}
+
+input[type="range"]:hover::-moz-range-thumb {
+  background: #0d1280;
 }
 
 input[type="range"]:hover::-ms-thumb {
   background: #0d1280;
 }
 
-input[type="range"]:focus {
+input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
   outline: none;
 }
 
-/* Remove default background for Firefox */
-input[type="range"] {
-  background: transparent;
+input[type="range"]:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
+  outline: none;
 }
 
-/* Hide the outline for Firefox on focus */
-input[type="range"]::-moz-focus-outer {
-  border: 0;
+input[type="range"]:focus::-ms-thumb {
+  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
+  outline: none;
+}
+
+/* Optimisations mobile */
+@media (max-width: 1023px) {
+  input[type="range"]::-webkit-slider-thumb {
+    width: 32px;
+    height: 32px;
+    margin-top: -15px;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 32px;
+    height: 32px;
+  }
+
+  input[type="range"]::-ms-thumb {
+    width: 32px;
+    height: 32px;
+  }
+
+  input[type="range"] {
+    touch-action: none;
+  }
 }
 
 button, .download-button, .reset-button {

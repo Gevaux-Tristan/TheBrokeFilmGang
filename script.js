@@ -114,9 +114,6 @@ async function loadLUT(url) {
 
   try {
     const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
     const text = await response.text();
     
     // Trouver la taille du LUT
@@ -156,8 +153,7 @@ async function loadLUT(url) {
     return lutData;
   } catch (error) {
     console.error("Erreur lors du chargement du LUT:", url, error);
-    // Retourner le LUT par défaut en cas d'erreur
-    return lutCache.get("luts/kodak_portra_160.cube") || null;
+    return null;
   }
 }
 
@@ -166,18 +162,10 @@ async function preloadLUTs() {
   const lutSelect = document.getElementById('filmSelect');
   const lutOptions = Array.from(lutSelect.options).map(option => option.value);
   
-  // Ajouter un délai sur mobile pour éviter les problèmes de chargement
-  if (isMobile) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  
   for (const lutName of lutOptions) {
     const url = `luts/${lutName}.cube`;
     try {
-      const lut = await loadLUT(url);
-      if (lut) {
-        lutCache.set(url, lut);
-      }
+      await loadLUT(url);
     } catch (error) {
       console.error(`Erreur lors du préchargement du LUT ${lutName}:`, error);
     }
