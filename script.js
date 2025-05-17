@@ -307,16 +307,84 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     // Dessiner l'image à la taille calculée
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
     
-    // Appliquer le LUT
+    // Get image data for processing
+    const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
+    const data = imgData.data;
+
+    // Create a copy of the original data for independent processing
+    const originalData = new Uint8ClampedArray(data);
+
+    // Apply LUT first if present
     if (lutData) {
-      const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-      applyLUTToImage(imgData.data, lutData);
-      exportCtx.putImageData(imgData, 0, 0);
+        // Create a temporary array for LUT processing
+        const lutProcessedData = new Uint8ClampedArray(data);
+        
+        // Apply LUT with proper error handling
+        try {
+            applyLUTToImage(lutProcessedData, lutData);
+            
+            // Blend LUT result with original based on intensity
+            for (let i = 0; i < data.length; i += 4) {
+                for (let c = 0; c < 3; c++) {
+                    data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
+                }
+            }
+        } catch (error) {
+            console.error("Error applying LUT:", error);
+            // Fallback to original data if LUT application fails
+            data.set(originalData);
+        }
     }
+
+    // Apply exposure and contrast
+    if (exposureAmount !== 0 || contrastAmount !== 0) {
+        for (let i = 0; i < data.length; i += 4) {
+            // Start with current values
+            let r = data[i] / 255;
+            let g = data[i + 1] / 255;
+            let b = data[i + 2] / 255;
+
+            // Apply exposure
+            if (exposureAmount !== 0) {
+                const exposureFactor = Math.pow(2, exposureAmount);
+                r = Math.min(1, Math.max(0, r * exposureFactor));
+                g = Math.min(1, Math.max(0, g * exposureFactor));
+                b = Math.min(1, Math.max(0, b * exposureFactor));
+            }
+
+            // Apply contrast
+            if (contrastAmount !== 0) {
+                const contrastFactor = contrastAmount / 100;
+                if (contrastFactor < 0) {
+                    // Fade effect (negative contrast)
+                    const fadeAmount = Math.abs(contrastFactor);
+                    const gray = 0.5;
+                    r = r * (1 - fadeAmount) + gray * fadeAmount;
+                    g = g * (1 - fadeAmount) + gray * fadeAmount;
+                    b = b * (1 - fadeAmount) + gray * fadeAmount;
+                } else {
+                    // Normal contrast
+                    r = applyContrast(r, contrastFactor);
+                    g = applyContrast(g, contrastFactor);
+                    b = applyContrast(b, contrastFactor);
+                }
+            }
+
+            // Convert back to 0-255
+            data[i] = r * 255;
+            data[i + 1] = g * 255;
+            data[i + 2] = b * 255;
+        }
+    }
+
+    // Put the processed image data back
+    exportCtx.putImageData(imgData, 0, 0);
     
-    // Appliquer le flou si nécessaire
+    // Apply blur if needed
     if (blurAmount > 0) {
-      applyFastBlur(exportCtx, exportWidth, exportHeight, blurAmount / 100 * 20);
+        const maxBlur = 20;
+        const blurRadius = (blurAmount / 100) * maxBlur;
+        applyFastBlur(exportCtx, exportWidth, exportHeight, blurRadius);
     }
     
     // Ajouter le grain
