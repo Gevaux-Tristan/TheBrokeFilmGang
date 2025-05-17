@@ -241,8 +241,7 @@ function createThrottledHandler(callback) {
 
 // Appliquer les gestionnaires optimisés aux curseurs
 isoSlider.addEventListener('input', createThrottledHandler(() => {
-  const steps = [100, 200, 400, 800, 1200];
-  selectedISO = steps[parseInt(isoSlider.value)];
+  selectedISO = parseInt(isoSlider.value);
   if (isoValueSpan) isoValueSpan.textContent = selectedISO;
   if (fullResImage) applyEffects(true);
 }));
@@ -385,6 +384,7 @@ function applyLUTToImage(data, lut) {
     let b = data[i + 2] / 255;
 
     if (lut.isBlackAndWhite) {
+      // Convert to grayscale using luminance weights
       const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
       r = g = b = gray;
     }
@@ -392,6 +392,7 @@ function applyLUTToImage(data, lut) {
     let color = trilinearLUTLookup(lut, r, g, b);
     if (color) {
       if (lut.isBlackAndWhite) {
+        // For black and white LUTs, maintain the grayscale value
         const grayValue = (color[0] + color[1] + color[2]) / 3;
         data[i] = data[i + 1] = data[i + 2] = grayValue * 255;
       } else {
@@ -496,11 +497,11 @@ if (resetBtn) {
 
 // ISO grain logic
 const isoValues = {
-  100: 0.02,
-  200: 0.06,
-  400: 0.12,
-  800: 0.20,
-  1200: 0.30
+  0: 0,      // No grain
+  1: 0.02,   // Very light grain
+  2: 0.04,   // Light grain
+  3: 0.06,   // Medium grain
+  4: 0.08    // Strong grain
 };
 
 async function loadLUT(url) {
@@ -752,7 +753,9 @@ function applyEffects(immediate = false) {
 
   // Apply blur if needed
   if (blurAmount > 0) {
-    const blurRadius = (blurAmount / 100) * 20;
+    // Limit blur to 15% of the original maximum
+    const maxBlur = 15;
+    const blurRadius = (blurAmount / 100) * maxBlur;
     applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
   }
 
