@@ -512,15 +512,15 @@ async function loadLUT(url) {
     
     // Trouver la taille du LUT
     const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
-    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33; // Par défaut 33 pour les nouveaux LUTs
+    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33;
     
-    // Filtrer les lignes de données et normaliser le format
+    // Filtrer et normaliser les lignes de données
     const lines = text.split('\n')
       .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
       .map(line => line.trim())
       .filter(line => line.length > 0 && line.split(' ').length >= 3);
     
-    // Convertir les lignes en valeurs RGB et s'assurer qu'elles sont dans la plage [0,1]
+    // Convertir les lignes en valeurs RGB
     const values = lines.map(line => {
       const [r, g, b] = line.split(' ').map(parseFloat);
       return [
@@ -530,7 +530,7 @@ async function loadLUT(url) {
       ];
     });
 
-    // Vérifier si le LUT est en noir et blanc en utilisant la liste
+    // Vérifier si le LUT est en noir et blanc
     const lutName = url.split('/').pop().replace('.cube', '');
     const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
     
@@ -539,7 +539,11 @@ async function loadLUT(url) {
       return null;
     }
     
-    console.log("LUT chargé avec succès:", url, "taille:", size, "valeurs:", values.length);
+    // Appliquer immédiatement le LUT
+    if (fullResImage) {
+      applyEffects(true);
+    }
+    
     return { size, values, isBlackAndWhite };
   } catch (error) {
     console.error("Erreur lors du chargement du LUT:", url, error);
@@ -736,9 +740,19 @@ function applyEffects(immediate = false) {
       // Apply contrast
       if (contrastAmount !== 0) {
         const contrastFactor = contrastAmount / 100;
-        r = applyContrast(r, contrastFactor);
-        g = applyContrast(g, contrastFactor);
-        b = applyContrast(b, contrastFactor);
+        if (contrastFactor < 0) {
+          // Fade effect (negative contrast)
+          const fadeAmount = Math.abs(contrastFactor);
+          const gray = 0.5;
+          r = r * (1 - fadeAmount) + gray * fadeAmount;
+          g = g * (1 - fadeAmount) + gray * fadeAmount;
+          b = b * (1 - fadeAmount) + gray * fadeAmount;
+        } else {
+          // Normal contrast
+          r = applyContrast(r, contrastFactor);
+          g = applyContrast(g, contrastFactor);
+          b = applyContrast(b, contrastFactor);
+        }
       }
 
       // Convert back to 0-255
@@ -753,8 +767,8 @@ function applyEffects(immediate = false) {
 
   // Apply blur if needed
   if (blurAmount > 0) {
-    // Limit blur to 15% of the original maximum
-    const maxBlur = 15;
+    // Limit blur to 26% of the original maximum
+    const maxBlur = 26;
     const blurRadius = (blurAmount / 100) * maxBlur;
     applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
   }

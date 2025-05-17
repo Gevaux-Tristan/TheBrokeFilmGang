@@ -242,14 +242,16 @@ input[type="range"] {
   box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
-  pointer-events: none; /* Make track non-interactive by default (for mobile) */
+  pointer-events: none;
 }
+
 /* Webkit (Chrome, Safari) */
 input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   background: #131AF9;
   border-radius: 0;
 }
+
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
@@ -258,25 +260,29 @@ input[type="range"]::-webkit-slider-thumb {
   background: #131AF9;
   border-radius: 50%;
   border: 2px solid #fff;
-  margin-top: -11px; /* (thumb height - track height)/2 */
+  margin-top: -11px;
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
-  pointer-events: auto; /* Ensure thumb is interactive */
+  pointer-events: auto;
 }
+
 input[type="range"]:focus::-webkit-slider-thumb {
   outline: none;
   box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
 }
+
 input[type="range"]:hover::-webkit-slider-thumb {
   background: #0d1280;
 }
+
 /* Firefox */
 input[type="range"]::-moz-range-track {
   height: 2px;
   background: #131AF9;
   border-radius: 0;
 }
+
 input[type="range"]::-moz-range-thumb {
   width: 24px;
   height: 24px;
@@ -286,24 +292,29 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
-  pointer-events: auto; /* Ensure thumb is interactive */
+  pointer-events: auto;
 }
+
 input[type="range"]:focus::-moz-range-thumb {
   outline: none;
   box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
 }
+
 input[type="range"]:hover::-moz-range-thumb {
   background: #0d1280;
 }
+
 /* IE/Edge */
 input[type="range"]::-ms-fill-lower {
   background: #131AF9;
   border-radius: 0;
 }
+
 input[type="range"]::-ms-fill-upper {
   background: #131AF9;
   border-radius: 0;
 }
+
 input[type="range"]::-ms-thumb {
   width: 24px;
   height: 24px;
@@ -314,22 +325,27 @@ input[type="range"]::-ms-thumb {
   box-shadow: none;
   transition: background 0.2s;
   margin-top: 0;
-  pointer-events: auto; /* Ensure thumb is interactive */
+  pointer-events: auto;
 }
+
 input[type="range"]:focus::-ms-thumb {
   outline: none;
   box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
 }
+
 input[type="range"]:hover::-ms-thumb {
   background: #0d1280;
 }
+
 input[type="range"]:focus {
   outline: none;
 }
+
 /* Remove default background for Firefox */
 input[type="range"] {
   background: transparent;
 }
+
 /* Hide the outline for Firefox on focus */
 input[type="range"]::-moz-focus-outer {
   border: 0;
