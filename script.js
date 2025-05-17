@@ -104,6 +104,16 @@ const lutCache = new Map();
 
 // Détection mobile
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const MOBILE_MAX_WIDTH = 480; // Reduced from 640
+const MOBILE_MAX_HEIGHT = 480;
+const DESKTOP_MAX_WIDTH = 1200;
+const DESKTOP_MAX_HEIGHT = 1200;
+
+// Instagram recommended sizes:
+// Stories: 1080x1920
+// Feed: 1080x1080 (square), 1080x1350 (portrait), 1080x566 (landscape)
+const EXPORT_MAX_WIDTH = 1080;
+const EXPORT_MAX_HEIGHT = 1350;
 
 // Optimiser le chargement des LUTs
 async function loadLUT(url) {
@@ -375,8 +385,8 @@ function applyEffects(immediate = false) {
 
   processingEffect = true;
 
-  const maxWidth = isMobile ? 640 : 1200;
-  const maxHeight = isMobile ? 640 : 1200;
+  const maxWidth = isMobile ? MOBILE_MAX_WIDTH : DESKTOP_MAX_WIDTH;
+  const maxHeight = isMobile ? MOBILE_MAX_HEIGHT : DESKTOP_MAX_HEIGHT;
   const aspectRatio = fullResImage.width / fullResImage.height;
   let newWidth = fullResImage.width;
   let newHeight = fullResImage.height;
@@ -390,6 +400,10 @@ function applyEffects(immediate = false) {
     newWidth = newHeight * aspectRatio;
   }
   
+  // Round dimensions to improve performance
+  newWidth = Math.floor(newWidth);
+  newHeight = Math.floor(newHeight);
+  
   canvas.width = newWidth;
   canvas.height = newHeight;
   
@@ -399,13 +413,26 @@ function applyEffects(immediate = false) {
   const data = imgData.data;
   const originalData = new Uint8ClampedArray(data);
 
+  // Optimize LUT processing for mobile
   if (lutData) {
     const lutProcessedData = new Uint8ClampedArray(data);
     try {
       applyLUTToImage(lutProcessedData, lutData);
-      for (let i = 0; i < data.length; i += 4) {
-        for (let c = 0; c < 3; c++) {
-          data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
+      
+      // Use a faster blending operation on mobile
+      if (isMobile) {
+        const intensity = Math.round(lutIntensity * 255);
+        const invIntensity = 255 - intensity;
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = (originalData[i] * invIntensity + lutProcessedData[i] * intensity) >> 8;
+          data[i + 1] = (originalData[i + 1] * invIntensity + lutProcessedData[i + 1] * intensity) >> 8;
+          data[i + 2] = (originalData[i + 2] * invIntensity + lutProcessedData[i + 2] * intensity) >> 8;
+        }
+      } else {
+        for (let i = 0; i < data.length; i += 4) {
+          for (let c = 0; c < 3; c++) {
+            data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
+          }
         }
       }
     } catch (error) {
@@ -414,27 +441,33 @@ function applyEffects(immediate = false) {
     }
   }
 
+  // Optimize exposure and contrast for mobile
   if (exposureAmount !== 0 || contrastAmount !== 0) {
+    const exposureFactor = exposureAmount !== 0 ? Math.pow(2, exposureAmount) : 1;
+    const contrastFactor = contrastAmount / 100;
+    
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i] / 255;
       let g = data[i + 1] / 255;
       let b = data[i + 2] / 255;
 
       if (exposureAmount !== 0) {
-        const exposureFactor = Math.pow(2, exposureAmount);
-        r = Math.min(1, Math.max(0, r * exposureFactor));
-        g = Math.min(1, Math.max(0, g * exposureFactor));
-        b = Math.min(1, Math.max(0, b * exposureFactor));
+        r = r * exposureFactor;
+        g = g * exposureFactor;
+        b = b * exposureFactor;
+        
+        // Fast clamp
+        r = r < 0 ? 0 : r > 1 ? 1 : r;
+        g = g < 0 ? 0 : g > 1 ? 1 : g;
+        b = b < 0 ? 0 : b > 1 ? 1 : b;
       }
 
       if (contrastAmount !== 0) {
-        const contrastFactor = contrastAmount / 100;
         if (contrastFactor < 0) {
           const fadeAmount = Math.abs(contrastFactor);
-          const gray = 0.5;
-          r = r * (1 - fadeAmount) + gray * fadeAmount;
-          g = g * (1 - fadeAmount) + gray * fadeAmount;
-          b = b * (1 - fadeAmount) + gray * fadeAmount;
+          r = r * (1 - fadeAmount) + 0.5 * fadeAmount;
+          g = g * (1 - fadeAmount) + 0.5 * fadeAmount;
+          b = b * (1 - fadeAmount) + 0.5 * fadeAmount;
         } else {
           r = applyContrast(r, contrastFactor);
           g = applyContrast(g, contrastFactor);
@@ -450,13 +483,20 @@ function applyEffects(immediate = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
+  // Optimize blur for mobile
   if (blurAmount > 0) {
-    const maxBlur = 20;
+    const maxBlur = isMobile ? 10 : 20; // Reduced blur radius on mobile
     const blurRadius = (blurAmount / 100) * maxBlur;
     applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
   }
 
-  addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
+  // Optimize grain for mobile
+  if (isMobile) {
+    const reducedGrain = isoValues[selectedISO] * 0.7; // Reduce grain intensity on mobile
+    addGrain(ctx, canvas.width, canvas.height, reducedGrain);
+  } else {
+    addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
+  }
 
   processingEffect = false;
 
@@ -473,17 +513,18 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
     
-    const targetSize = 2 * 1024 * 1024;
+    // Calculate export dimensions based on Instagram requirements
     const aspectRatio = fullResImage.width / fullResImage.height;
     let exportWidth = fullResImage.width;
     let exportHeight = fullResImage.height;
     
-    while (true) {
-      const estimatedSize = (exportWidth * exportHeight * 4) / 2;
-      if (estimatedSize >= targetSize) break;
-      
-      exportWidth = Math.floor(exportWidth * 1.1);
+    if (exportWidth > EXPORT_MAX_WIDTH) {
+      exportWidth = EXPORT_MAX_WIDTH;
       exportHeight = Math.floor(exportWidth / aspectRatio);
+    }
+    if (exportHeight > EXPORT_MAX_HEIGHT) {
+      exportHeight = EXPORT_MAX_HEIGHT;
+      exportWidth = Math.floor(exportHeight * aspectRatio);
     }
     
     exportCanvas.width = exportWidth;
