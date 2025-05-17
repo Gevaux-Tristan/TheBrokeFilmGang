@@ -172,80 +172,6 @@ async function preloadLUTs() {
 // Appeler le préchargement au démarrage
 document.addEventListener('DOMContentLoaded', preloadLUTs);
 
-// Optimiser l'application des LUTs
-function applyLUTToImage(data, lut) {
-  if (!lut || !lut.values || lut.values.length === 0) {
-    console.error("Invalid LUT:", lut);
-    return;
-  }
-
-  const size = lut.size;
-  const maxIndex = size - 1;
-  const values = lut.values;
-
-  // Pré-calculer les indices pour optimiser la recherche
-  const indices = new Float32Array(data.length / 4 * 3);
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i] / 255;
-    const g = data[i + 1] / 255;
-    const b = data[i + 2] / 255;
-
-    if (lut.isBlackAndWhite) {
-      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      indices[i/4*3] = gray * maxIndex;
-      indices[i/4*3+1] = gray * maxIndex;
-      indices[i/4*3+2] = gray * maxIndex;
-    } else {
-      indices[i/4*3] = r * maxIndex;
-      indices[i/4*3+1] = g * maxIndex;
-      indices[i/4*3+2] = b * maxIndex;
-    }
-  }
-
-  // Appliquer le LUT avec les indices pré-calculés
-  for (let i = 0; i < data.length; i += 4) {
-    const r = indices[i/4*3];
-    const g = indices[i/4*3+1];
-    const b = indices[i/4*3+2];
-
-    const r0 = Math.floor(r), r1 = Math.min(r0 + 1, maxIndex);
-    const g0 = Math.floor(g), g1 = Math.min(g0 + 1, maxIndex);
-    const b0 = Math.floor(b), b1 = Math.min(b0 + 1, maxIndex);
-    const dr = r - r0, dg = g - g0, db = b - b0;
-
-    const idx = (ri, gi, bi) => ri + gi * size + bi * size * size;
-    const v000 = values[idx(r0, g0, b0)];
-    const v100 = values[idx(r1, g0, b0)];
-    const v010 = values[idx(r0, g1, b0)];
-    const v110 = values[idx(r1, g1, b0)];
-    const v001 = values[idx(r0, g0, b1)];
-    const v101 = values[idx(r1, g0, b1)];
-    const v011 = values[idx(r0, g1, b1)];
-    const v111 = values[idx(r1, g1, b1)];
-
-    const lerp = (a, b, t) => a * (1 - t) + b * t;
-    let out = [0, 0, 0];
-    for (let c = 0; c < 3; c++) {
-      const c00 = lerp(v000[c], v100[c], dr);
-      const c01 = lerp(v001[c], v101[c], dr);
-      const c10 = lerp(v010[c], v110[c], dr);
-      const c11 = lerp(v011[c], v111[c], dr);
-      const c0 = lerp(c00, c10, dg);
-      const c1 = lerp(c01, c11, dg);
-      out[c] = lerp(c0, c1, db);
-    }
-
-    if (lut.isBlackAndWhite) {
-      const grayValue = (out[0] + out[1] + out[2]) / 3;
-      data[i] = data[i + 1] = data[i + 2] = grayValue * 255;
-    } else {
-      data[i] = out[0] * 255;
-      data[i + 1] = out[1] * 255;
-      data[i + 2] = out[2] * 255;
-    }
-  }
-}
-
 // Modifier l'événement de changement de LUT
 document.getElementById("filmSelect").addEventListener("change", async () => {
   const selectedFilm = document.getElementById("filmSelect").value;
@@ -259,6 +185,25 @@ document.getElementById("filmSelect").addEventListener("change", async () => {
     requestAnimationFrame(() => applyEffects(true));
   }
 });
+
+// Helper function for contrast adjustment
+function applyContrast(x, c) {
+  if (c === 0) return x;
+  
+  // Limiter la plage de contraste entre -0.5 et 0.5
+  const limitedC = Math.max(-0.5, Math.min(0.5, c));
+  
+  if (limitedC > 0) {
+    // Contraste positif
+    const factor = 1 + limitedC;
+    return Math.min(1, Math.max(0, (x - 0.5) * factor + 0.5));
+  } else {
+    // Contraste négatif (fade)
+    const factor = 1 + limitedC;
+    const gray = 0.5;
+    return Math.min(1, Math.max(0, x * factor + gray * (1 - factor)));
+  }
+}
 
 document.getElementById("imageUpload").addEventListener("change", e => {
   const file = e.target.files[0];
@@ -847,26 +792,5 @@ function applyEffects(immediate = false) {
   if (pendingEffect) {
     pendingEffect = false;
     requestAnimationFrame(() => applyEffects(true));
-  }
-}
-
-// Helper function for contrast adjustment
-function applyContrast(x, c) {
-  if (c === 0) return x;
-  if (c > 0) {
-    if (c < 0.3) {
-      return x + (x - 0.5) * c;
-    } else if (c < 0.4) {
-      const lin = x + (x - 0.5) * c;
-      const k = 2;
-      const scurve = 1 / (1 + Math.exp(-k * (x - 0.5)));
-      const t = (c - 0.3) / 0.1;
-      return lin * (1 - t) + scurve * t;
-    } else {
-      const k = 2;
-      return 1 / (1 + Math.exp(-k * (x - 0.5)));
-    }
-  } else {
-    return x + (0.5 - x) * (-c);
   }
 }
