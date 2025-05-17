@@ -234,22 +234,7 @@ function applyEffects(immediate = false) {
     return;
   }
 
-  if (isMobile && !immediate) {
-    const now = Date.now();
-    if (now - lastEffectTime < THROTTLE_DELAY) {
-      if (!pendingEffect) {
-        pendingEffect = true;
-        setTimeout(() => {
-          pendingEffect = false;
-          applyEffects(true);
-        }, THROTTLE_DELAY);
-      }
-      return;
-    }
-  }
-
   processingEffect = true;
-  lastEffectTime = Date.now();
 
   // Define dimensions
   const maxWidth = isMobile ? 640 : 1200;
@@ -319,9 +304,13 @@ function applyEffects(immediate = false) {
     data[i + 2] = b * 255;
   }
 
+  // Put the processed image data back
+  ctx.putImageData(imgData, 0, 0);
+
   // Apply blur if needed
   if (blurAmount > 0) {
-    applyFastBlur(ctx, canvas.width, canvas.height, blurAmount / 100 * 20);
+    const blurRadius = (blurAmount / 100) * 20;
+    applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
   }
 
   // Add grain
@@ -375,31 +364,31 @@ isoSlider.addEventListener('input', createThrottledHandler(() => {
   const steps = [100, 200, 400, 800, 1200];
   selectedISO = steps[parseInt(isoSlider.value)];
   if (isoValueSpan) isoValueSpan.textContent = selectedISO;
-  if (fullResImage) applyEffects();
+  if (fullResImage) applyEffects(true);
 }));
 
 contrastSlider.addEventListener('input', createThrottledHandler(() => {
   contrastAmount = parseInt(contrastSlider.value);
   if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
-  if (fullResImage) applyEffects();
+  if (fullResImage) applyEffects(true);
 }));
 
 exposureSlider.addEventListener('input', createThrottledHandler(() => {
   exposureAmount = parseFloat(exposureSlider.value);
   if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
-  if (fullResImage) applyEffects();
+  if (fullResImage) applyEffects(true);
 }));
 
 lutIntensitySlider.addEventListener('input', createThrottledHandler(() => {
   lutIntensity = parseInt(lutIntensitySlider.value) / 100;
   if (intensityValueSpan) intensityValueSpan.textContent = lutIntensitySlider.value + '%';
-  if (fullResImage) applyEffects();
+  if (fullResImage) applyEffects(true);
 }));
 
 blurSlider.addEventListener('input', createThrottledHandler(() => {
   blurAmount = parseInt(blurSlider.value);
   if (blurValueSpan) blurValueSpan.textContent = blurAmount + '%';
-  if (fullResImage) applyEffects();
+  if (fullResImage) applyEffects(true);
 }));
 
 // Initialiser les valeurs affichées
@@ -703,42 +692,83 @@ function applyFastBlur(ctx, width, height, radius) {
   const tempPixels = new Uint8ClampedArray(pixels);
 
   // Optimize radius for performance
-  const size = Math.max(1, Math.floor(radius / 2)) | 1; // Reduce radius by half and ensure odd
-  const step = Math.max(1, Math.floor(size / 4)); // Use larger steps for better performance
+  const size = Math.max(1, Math.floor(radius)) | 1; // Ensure odd size
   const halfSize = Math.floor(size / 2);
 
-  // Single-pass box blur with larger steps
-  for (let y = 0; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      let r = 0, g = 0, b = 0;
-      let count = 0;
+  // Two-pass box blur (horizontal then vertical)
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    let r = 0, g = 0, b = 0;
+    let count = 0;
 
-      // Sample in a box around the current pixel
-      for (let dy = -halfSize; dy <= halfSize; dy += step) {
-        const ny = Math.min(Math.max(y + dy, 0), height - 1);
-        for (let dx = -halfSize; dx <= halfSize; dx += step) {
-          const nx = Math.min(Math.max(x + dx, 0), width - 1);
-          const i = (ny * width + nx) * 4;
-          r += tempPixels[i];
-          g += tempPixels[i + 1];
-          b += tempPixels[i + 2];
-          count++;
-        }
-      }
+    // Initialize first window
+    for (let x = -halfSize; x <= halfSize; x++) {
+      const nx = Math.min(Math.max(x, 0), width - 1);
+      const i = (y * width + nx) * 4;
+      r += tempPixels[i];
+      g += tempPixels[i + 1];
+      b += tempPixels[i + 2];
+      count++;
+    }
 
-      // Apply the average to all pixels in the current step block
-      const avgR = Math.round(r / count);
-      const avgG = Math.round(g / count);
-      const avgB = Math.round(b / count);
+    // Slide window
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = r / count;
+      pixels[i + 1] = g / count;
+      pixels[i + 2] = b / count;
 
-      for (let dy = 0; dy < step && y + dy < height; dy++) {
-        for (let dx = 0; dx < step && x + dx < width; dx++) {
-          const i = ((y + dy) * width + (x + dx)) * 4;
-          pixels[i] = avgR;
-          pixels[i + 1] = avgG;
-          pixels[i + 2] = avgB;
-        }
-      }
+      // Remove leftmost pixel
+      const leftX = Math.max(0, x - halfSize);
+      const leftI = (y * width + leftX) * 4;
+      r -= tempPixels[leftI];
+      g -= tempPixels[leftI + 1];
+      b -= tempPixels[leftI + 2];
+
+      // Add rightmost pixel
+      const rightX = Math.min(width - 1, x + halfSize + 1);
+      const rightI = (y * width + rightX) * 4;
+      r += tempPixels[rightI];
+      g += tempPixels[rightI + 1];
+      b += tempPixels[rightI + 2];
+    }
+  }
+
+  // Vertical pass
+  for (let x = 0; x < width; x++) {
+    let r = 0, g = 0, b = 0;
+    let count = 0;
+
+    // Initialize first window
+    for (let y = -halfSize; y <= halfSize; y++) {
+      const ny = Math.min(Math.max(y, 0), height - 1);
+      const i = (ny * width + x) * 4;
+      r += pixels[i];
+      g += pixels[i + 1];
+      b += pixels[i + 2];
+      count++;
+    }
+
+    // Slide window
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4;
+      pixels[i] = r / count;
+      pixels[i + 1] = g / count;
+      pixels[i + 2] = b / count;
+
+      // Remove topmost pixel
+      const topY = Math.max(0, y - halfSize);
+      const topI = (topY * width + x) * 4;
+      r -= pixels[topI];
+      g -= pixels[topI + 1];
+      b -= pixels[topI + 2];
+
+      // Add bottommost pixel
+      const bottomY = Math.min(height - 1, y + halfSize + 1);
+      const bottomI = (bottomY * width + x) * 4;
+      r += pixels[bottomI];
+      g += pixels[bottomI + 1];
+      b += pixels[bottomI + 2];
     }
   }
 
