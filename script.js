@@ -99,13 +99,165 @@ window.addEventListener('resize', () => {
 // Ajouter une variable pour stocker le LUT actuel
 let currentLutName = 'kodak_portra_160';
 
+// Ajouter un cache pour les LUTs
+const lutCache = new Map();
+
+// Optimiser le chargement des LUTs
+async function loadLUT(url) {
+  // Vérifier si le LUT est déjà en cache
+  if (lutCache.has(url)) {
+    return lutCache.get(url);
+  }
+
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+    
+    // Trouver la taille du LUT
+    const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
+    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33;
+    
+    // Filtrer et normaliser les lignes de données
+    const lines = text.split('\n')
+      .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && line.split(' ').length >= 3);
+    
+    // Convertir les lignes en valeurs RGB
+    const values = lines.map(line => {
+      const [r, g, b] = line.split(' ').map(parseFloat);
+      return [
+        Math.min(1, Math.max(0, r)),
+        Math.min(1, Math.max(0, g)),
+        Math.min(1, Math.max(0, b))
+      ];
+    });
+
+    // Vérifier si le LUT est en noir et blanc
+    const lutName = url.split('/').pop().replace('.cube', '');
+    const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
+    
+    if (!values.length) {
+      console.error("LUT invalide - pas de données:", url);
+      return null;
+    }
+    
+    const lutData = { size, values, isBlackAndWhite };
+    
+    // Mettre en cache le LUT
+    lutCache.set(url, lutData);
+    
+    return lutData;
+  } catch (error) {
+    console.error("Erreur lors du chargement du LUT:", url, error);
+    return null;
+  }
+}
+
+// Précharger les LUTs au démarrage
+async function preloadLUTs() {
+  const lutSelect = document.getElementById('filmSelect');
+  const lutOptions = Array.from(lutSelect.options).map(option => option.value);
+  
+  for (const lutName of lutOptions) {
+    const url = `luts/${lutName}.cube`;
+    try {
+      await loadLUT(url);
+    } catch (error) {
+      console.error(`Erreur lors du préchargement du LUT ${lutName}:`, error);
+    }
+  }
+}
+
+// Appeler le préchargement au démarrage
+document.addEventListener('DOMContentLoaded', preloadLUTs);
+
+// Optimiser l'application des LUTs
+function applyLUTToImage(data, lut) {
+  if (!lut || !lut.values || lut.values.length === 0) {
+    console.error("Invalid LUT:", lut);
+    return;
+  }
+
+  const size = lut.size;
+  const maxIndex = size - 1;
+  const values = lut.values;
+
+  // Pré-calculer les indices pour optimiser la recherche
+  const indices = new Float32Array(data.length / 4 * 3);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+
+    if (lut.isBlackAndWhite) {
+      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      indices[i/4*3] = gray * maxIndex;
+      indices[i/4*3+1] = gray * maxIndex;
+      indices[i/4*3+2] = gray * maxIndex;
+    } else {
+      indices[i/4*3] = r * maxIndex;
+      indices[i/4*3+1] = g * maxIndex;
+      indices[i/4*3+2] = b * maxIndex;
+    }
+  }
+
+  // Appliquer le LUT avec les indices pré-calculés
+  for (let i = 0; i < data.length; i += 4) {
+    const r = indices[i/4*3];
+    const g = indices[i/4*3+1];
+    const b = indices[i/4*3+2];
+
+    const r0 = Math.floor(r), r1 = Math.min(r0 + 1, maxIndex);
+    const g0 = Math.floor(g), g1 = Math.min(g0 + 1, maxIndex);
+    const b0 = Math.floor(b), b1 = Math.min(b0 + 1, maxIndex);
+    const dr = r - r0, dg = g - g0, db = b - b0;
+
+    const idx = (ri, gi, bi) => ri + gi * size + bi * size * size;
+    const v000 = values[idx(r0, g0, b0)];
+    const v100 = values[idx(r1, g0, b0)];
+    const v010 = values[idx(r0, g1, b0)];
+    const v110 = values[idx(r1, g1, b0)];
+    const v001 = values[idx(r0, g0, b1)];
+    const v101 = values[idx(r1, g0, b1)];
+    const v011 = values[idx(r0, g1, b1)];
+    const v111 = values[idx(r1, g1, b1)];
+
+    const lerp = (a, b, t) => a * (1 - t) + b * t;
+    let out = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      const c00 = lerp(v000[c], v100[c], dr);
+      const c01 = lerp(v001[c], v101[c], dr);
+      const c10 = lerp(v010[c], v110[c], dr);
+      const c11 = lerp(v011[c], v111[c], dr);
+      const c0 = lerp(c00, c10, dg);
+      const c1 = lerp(c01, c11, dg);
+      out[c] = lerp(c0, c1, db);
+    }
+
+    if (lut.isBlackAndWhite) {
+      const grayValue = (out[0] + out[1] + out[2]) / 3;
+      data[i] = data[i + 1] = data[i + 2] = grayValue * 255;
+    } else {
+      data[i] = out[0] * 255;
+      data[i + 1] = out[1] * 255;
+      data[i + 2] = out[2] * 255;
+    }
+  }
+}
+
+// Modifier l'événement de changement de LUT
 document.getElementById("filmSelect").addEventListener("change", async () => {
   const selectedFilm = document.getElementById("filmSelect").value;
   currentLutName = selectedFilm;
-  console.log("Chargement du LUT:", selectedFilm);
-  lutData = await loadLUT("luts/" + selectedFilm + ".cube");
-  console.log("LUT chargé:", lutData);
-  if (fullResImage) applyEffects(true);
+  
+  // Utiliser le LUT du cache s'il existe
+  const lutUrl = "luts/" + selectedFilm + ".cube";
+  lutData = lutCache.get(lutUrl) || await loadLUT(lutUrl);
+  
+  if (fullResImage) {
+    requestAnimationFrame(() => applyEffects(true));
+  }
 });
 
 document.getElementById("imageUpload").addEventListener("change", e => {
@@ -145,39 +297,52 @@ document.getElementById("imageUpload").addEventListener("change", e => {
   reader.readAsDataURL(file);
 });
 
-document.getElementById("downloadBtn").addEventListener("click", () => {
+document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!fullResImage) return;
 
+  // Créer un canvas de haute résolution
   const exportCanvas = document.createElement("canvas");
   const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
   
-  // Utiliser les mêmes dimensions que le preview pour la cohérence
-  const previewWidth = canvas.width;
-  const previewHeight = canvas.height;
-  exportCanvas.width = previewWidth;
-  exportCanvas.height = previewHeight;
+  // Calculer les dimensions optimales pour atteindre 2Mo
+  const targetSize = 2 * 1024 * 1024; // 2Mo en octets
+  const aspectRatio = fullResImage.width / fullResImage.height;
+  let exportWidth = fullResImage.width;
+  let exportHeight = fullResImage.height;
   
-  // Utiliser la même qualité de rendu
+  // Augmenter la taille jusqu'à atteindre la cible de 2Mo
+  while (true) {
+    const estimatedSize = (exportWidth * exportHeight * 4) / 2; // Estimation de la taille en JPEG
+    if (estimatedSize >= targetSize) break;
+    
+    exportWidth = Math.floor(exportWidth * 1.1);
+    exportHeight = Math.floor(exportWidth / aspectRatio);
+  }
+  
+  exportCanvas.width = exportWidth;
+  exportCanvas.height = exportHeight;
+  
+  // Utiliser la meilleure qualité de rendu
   exportCtx.imageSmoothingEnabled = true;
   exportCtx.imageSmoothingQuality = 'high';
   
-  // Dessiner l'image
-  exportCtx.drawImage(fullResImage, 0, 0, exportCanvas.width, exportCanvas.height);
+  // Dessiner l'image à la taille calculée
+  exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
   
   // Appliquer le LUT
   if (lutData) {
-    const imgData = exportCtx.getImageData(0, 0, exportCanvas.width, exportCanvas.height);
+    const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
     applyLUTToImage(imgData.data, lutData);
     exportCtx.putImageData(imgData, 0, 0);
   }
   
   // Appliquer le flou si nécessaire
   if (blurAmount > 0) {
-    applySimpleBlur(exportCtx, exportCanvas.width, exportCanvas.height, blurAmount / 100 * 20);
+    applyFastBlur(exportCtx, exportWidth, exportHeight, blurAmount / 100 * 20);
   }
   
   // Ajouter le grain
-  addGrain(exportCtx, exportCanvas.width, exportCanvas.height, isoValues[selectedISO]);
+  addGrain(exportCtx, exportWidth, exportHeight, isoValues[selectedISO]);
   
   // Générer un nom de fichier unique
   const now = new Date();
@@ -186,10 +351,20 @@ document.getElementById("downloadBtn").addEventListener("click", () => {
   const isoStr = selectedISO.toString();
   const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
   
+  // Convertir en Blob pour une meilleure qualité
+  const blob = await new Promise(resolve => {
+    exportCanvas.toBlob(resolve, 'image/jpeg', 1.0);
+  });
+  
+  // Créer l'URL et télécharger
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.download = fileName;
-  link.href = exportCanvas.toDataURL("image/jpeg", 0.95);
+  link.href = url;
   link.click();
+  
+  // Nettoyer l'URL
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 });
 
 let selectedISO = 100;
@@ -371,39 +546,6 @@ function trilinearLUTLookup(lut, r, g, b) {
   return out;
 }
 
-function applyLUTToImage(data, lut) {
-  if (!lut || !lut.values || lut.values.length === 0) {
-    console.error("Invalid LUT:", lut);
-    return;
-  }
-
-  // Apply LUT with trilinear interpolation
-  for (let i = 0; i < data.length; i += 4) {
-    let r = data[i] / 255;
-    let g = data[i + 1] / 255;
-    let b = data[i + 2] / 255;
-
-    if (lut.isBlackAndWhite) {
-      // Convert to grayscale using luminance weights
-      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      r = g = b = gray;
-    }
-
-    let color = trilinearLUTLookup(lut, r, g, b);
-    if (color) {
-      if (lut.isBlackAndWhite) {
-        // For black and white LUTs, maintain the grayscale value
-        const grayValue = (color[0] + color[1] + color[2]) / 3;
-        data[i] = data[i + 1] = data[i + 2] = grayValue * 255;
-      } else {
-        data[i] = color[0] * 255;
-        data[i + 1] = color[1] * 255;
-        data[i + 2] = color[2] * 255;
-      }
-    }
-  }
-}
-
 // Nouvelle fonction de flou simplifiée
 function applySimpleBlur(ctx, width, height, radius) {
   if (radius <= 0) return;
@@ -504,53 +646,6 @@ const isoValues = {
   4: 0.08    // Strong grain
 };
 
-async function loadLUT(url) {
-  try {
-    const response = await fetch(url);
-    const text = await response.text();
-    console.log("Chargement du LUT:", url);
-    
-    // Trouver la taille du LUT
-    const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
-    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33;
-    
-    // Filtrer et normaliser les lignes de données
-    const lines = text.split('\n')
-      .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && line.split(' ').length >= 3);
-    
-    // Convertir les lignes en valeurs RGB
-    const values = lines.map(line => {
-      const [r, g, b] = line.split(' ').map(parseFloat);
-      return [
-        Math.min(1, Math.max(0, r)),
-        Math.min(1, Math.max(0, g)),
-        Math.min(1, Math.max(0, b))
-      ];
-    });
-
-    // Vérifier si le LUT est en noir et blanc
-    const lutName = url.split('/').pop().replace('.cube', '');
-    const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
-    
-    if (!values.length) {
-      console.error("LUT invalide - pas de données:", url);
-      return null;
-    }
-    
-    // Appliquer immédiatement le LUT
-    if (fullResImage) {
-      applyEffects(true);
-    }
-    
-    return { size, values, isBlackAndWhite };
-  } catch (error) {
-    console.error("Erreur lors du chargement du LUT:", url, error);
-    return null;
-  }
-}
-
 // Liste des LUTs noir et blanc
 const blackAndWhiteLUTs = [
   'agfa_apx_400',
@@ -576,84 +671,55 @@ function applyFastBlur(ctx, width, height, radius) {
   const pixels = imgData.data;
   const tempPixels = new Uint8ClampedArray(pixels);
 
-  // Optimize radius for performance
-  const size = Math.max(1, Math.floor(radius)) | 1; // Ensure odd size
+  // Calculer le centre de l'image
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+
+  // Optimiser le rayon pour les performances
+  const size = Math.max(1, Math.floor(radius * 0.5)) | 1;
   const halfSize = Math.floor(size / 2);
 
-  // Two-pass box blur (horizontal then vertical)
-  // Horizontal pass
+  // Créer un masque radial inversé pour le flou
+  const radialMask = new Float32Array(width * height);
   for (let y = 0; y < height; y++) {
-    let r = 0, g = 0, b = 0;
-    let count = 0;
-
-    // Initialize first window
-    for (let x = -halfSize; x <= halfSize; x++) {
-      const nx = Math.min(Math.max(x, 0), width - 1);
-      const i = (y * width + nx) * 4;
-      r += tempPixels[i];
-      g += tempPixels[i + 1];
-      b += tempPixels[i + 2];
-      count++;
-    }
-
-    // Slide window
     for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      pixels[i] = r / count;
-      pixels[i + 1] = g / count;
-      pixels[i + 2] = b / count;
-
-      // Remove leftmost pixel
-      const leftX = Math.max(0, x - halfSize);
-      const leftI = (y * width + leftX) * 4;
-      r -= tempPixels[leftI];
-      g -= tempPixels[leftI + 1];
-      b -= tempPixels[leftI + 2];
-
-      // Add rightmost pixel
-      const rightX = Math.min(width - 1, x + halfSize + 1);
-      const rightI = (y * width + rightX) * 4;
-      r += tempPixels[rightI];
-      g += tempPixels[rightI + 1];
-      b += tempPixels[rightI + 2];
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const normalizedDistance = distance / maxDistance;
+      // Inverser le masque : plus fort sur les bords, plus faible au centre
+      radialMask[y * width + x] = (1 - Math.pow(1 - normalizedDistance, 2)) * radius;
     }
   }
 
-  // Vertical pass
-  for (let x = 0; x < width; x++) {
-    let r = 0, g = 0, b = 0;
-    let count = 0;
+  // Appliquer le flou avec le masque radial inversé
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const maskValue = radialMask[y * width + x];
+      const localSize = Math.max(1, Math.floor(maskValue * 0.5)) | 1;
+      const localHalfSize = Math.floor(localSize / 2);
 
-    // Initialize first window
-    for (let y = -halfSize; y <= halfSize; y++) {
-      const ny = Math.min(Math.max(y, 0), height - 1);
-      const i = (ny * width + x) * 4;
-      r += pixels[i];
-      g += pixels[i + 1];
-      b += pixels[i + 2];
-      count++;
-    }
+      let r = 0, g = 0, b = 0;
+      let count = 0;
 
-    // Slide window
-    for (let y = 0; y < height; y++) {
+      // Appliquer le flou local
+      for (let dy = -localHalfSize; dy <= localHalfSize; dy++) {
+        const ny = Math.min(Math.max(y + dy, 0), height - 1);
+        for (let dx = -localHalfSize; dx <= localHalfSize; dx++) {
+          const nx = Math.min(Math.max(x + dx, 0), width - 1);
+          const i = (ny * width + nx) * 4;
+          r += tempPixels[i];
+          g += tempPixels[i + 1];
+          b += tempPixels[i + 2];
+          count++;
+        }
+      }
+
       const i = (y * width + x) * 4;
       pixels[i] = r / count;
       pixels[i + 1] = g / count;
       pixels[i + 2] = b / count;
-
-      // Remove topmost pixel
-      const topY = Math.max(0, y - halfSize);
-      const topI = (topY * width + x) * 4;
-      r -= pixels[topI];
-      g -= pixels[topI + 1];
-      b -= pixels[topI + 2];
-
-      // Add bottommost pixel
-      const bottomY = Math.min(height - 1, y + halfSize + 1);
-      const bottomI = (bottomY * width + x) * 4;
-      r += pixels[bottomI];
-      g += pixels[bottomI + 1];
-      b += pixels[bottomI + 2];
     }
   }
 
@@ -767,8 +833,8 @@ function applyEffects(immediate = false) {
 
   // Apply blur if needed
   if (blurAmount > 0) {
-    // Limit blur to 26% of the original maximum
-    const maxBlur = 26;
+    // Ajuster l'intensité maximale du flou
+    const maxBlur = 20; // Augmenté pour un effet plus prononcé sur les bords
     const blurRadius = (blurAmount / 100) * maxBlur;
     applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
   }
