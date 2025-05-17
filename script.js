@@ -107,24 +107,34 @@ const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 // Optimiser le chargement des LUTs
 async function loadLUT(url) {
+  console.log("Tentative de chargement du LUT:", url);
+  
   // Vérifier si le LUT est déjà en cache
   if (lutCache.has(url)) {
+    console.log("LUT trouvé dans le cache");
     return lutCache.get(url);
   }
 
   try {
+    console.log("Chargement du LUT depuis le serveur");
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
     const text = await response.text();
     
     // Trouver la taille du LUT
     const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
     const size = sizeMatch ? parseInt(sizeMatch[1]) : 33;
+    console.log("Taille du LUT:", size);
     
     // Filtrer et normaliser les lignes de données
     const lines = text.split('\n')
       .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
       .map(line => line.trim())
       .filter(line => line.length > 0 && line.split(' ').length >= 3);
+    
+    console.log("Nombre de lignes de données:", lines.length);
     
     // Convertir les lignes en valeurs RGB
     const values = lines.map(line => {
@@ -146,30 +156,38 @@ async function loadLUT(url) {
     }
     
     const lutData = { size, values, isBlackAndWhite };
+    console.log("LUT chargé avec succès:", lutName);
     
     // Mettre en cache le LUT
     lutCache.set(url, lutData);
     
     return lutData;
   } catch (error) {
-    console.error("Erreur lors du chargement du LUT:", url, error);
+    console.error("Erreur détaillée lors du chargement du LUT:", error);
     return null;
   }
 }
 
 // Précharger les LUTs au démarrage
 async function preloadLUTs() {
+  console.log("Début du préchargement des LUTs");
   const lutSelect = document.getElementById('filmSelect');
   const lutOptions = Array.from(lutSelect.options).map(option => option.value);
   
   for (const lutName of lutOptions) {
     const url = `luts/${lutName}.cube`;
     try {
-      await loadLUT(url);
+      const lut = await loadLUT(url);
+      if (lut) {
+        console.log(`LUT préchargé avec succès: ${lutName}`);
+      } else {
+        console.warn(`Échec du préchargement du LUT: ${lutName}`);
+      }
     } catch (error) {
       console.error(`Erreur lors du préchargement du LUT ${lutName}:`, error);
     }
   }
+  console.log("Fin du préchargement des LUTs");
 }
 
 // Appeler le préchargement au démarrage
@@ -178,14 +196,25 @@ document.addEventListener('DOMContentLoaded', preloadLUTs);
 // Modifier l'événement de changement de LUT
 document.getElementById("filmSelect").addEventListener("change", async () => {
   const selectedFilm = document.getElementById("filmSelect").value;
+  console.log("Changement de LUT:", selectedFilm);
   currentLutName = selectedFilm;
   
   // Utiliser le LUT du cache s'il existe
   const lutUrl = "luts/" + selectedFilm + ".cube";
-  lutData = lutCache.get(lutUrl) || await loadLUT(lutUrl);
+  lutData = lutCache.get(lutUrl);
   
-  if (fullResImage) {
-    requestAnimationFrame(() => applyEffects(true));
+  if (!lutData) {
+    console.log("LUT non trouvé dans le cache, chargement...");
+    lutData = await loadLUT(lutUrl);
+  }
+  
+  if (lutData) {
+    console.log("LUT prêt à être appliqué");
+    if (fullResImage) {
+      requestAnimationFrame(() => applyEffects(true));
+    }
+  } else {
+    console.error("Impossible de charger le LUT:", selectedFilm);
   }
 });
 
@@ -681,19 +710,32 @@ function applyFastBlur(ctx, width, height, radius) {
 }
 
 function applyLUTToImage(pixels, lut) {
+  if (!lut || !lut.values || !lut.size) {
+    console.error("LUT invalide:", lut);
+    return;
+  }
+
+  console.log("Application du LUT - taille:", lut.size, "nombre de valeurs:", lut.values.length);
+  
   for (let i = 0; i < pixels.length; i += 4) {
     const r = pixels[i] / 255;
     const g = pixels[i + 1] / 255;
     const b = pixels[i + 2] / 255;
 
-    // Appliquer le LUT
-    const newColor = trilinearLUTLookup(lut, r, g, b);
+    try {
+      // Appliquer le LUT
+      const newColor = trilinearLUTLookup(lut, r, g, b);
 
-    // Mettre à jour les pixels
-    pixels[i] = newColor[0] * 255;
-    pixels[i + 1] = newColor[1] * 255;
-    pixels[i + 2] = newColor[2] * 255;
+      // Mettre à jour les pixels
+      pixels[i] = newColor[0] * 255;
+      pixels[i + 1] = newColor[1] * 255;
+      pixels[i + 2] = newColor[2] * 255;
+    } catch (error) {
+      console.error("Erreur lors de l'application du LUT aux pixels:", error);
+      return;
+    }
   }
+  console.log("LUT appliqué avec succès");
 }
 
 function applyEffects(immediate = false) {
