@@ -680,6 +680,22 @@ function applyFastBlur(ctx, width, height, radius) {
   ctx.putImageData(imgData, 0, 0);
 }
 
+function applyLUTToImage(pixels, lut) {
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i] / 255;
+    const g = pixels[i + 1] / 255;
+    const b = pixels[i + 2] / 255;
+
+    // Appliquer le LUT
+    const newColor = trilinearLUTLookup(lut, r, g, b);
+
+    // Mettre à jour les pixels
+    pixels[i] = newColor[0] * 255;
+    pixels[i + 1] = newColor[1] * 255;
+    pixels[i + 2] = newColor[2] * 255;
+  }
+}
+
 function applyEffects(immediate = false) {
   if (!fullResImage) return;
 
