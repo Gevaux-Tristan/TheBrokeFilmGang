@@ -102,6 +102,9 @@ let currentLutName = 'kodak_portra_160';
 // Ajouter un cache pour les LUTs
 const lutCache = new Map();
 
+// Détection mobile
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 // Optimiser le chargement des LUTs
 async function loadLUT(url) {
   // Vérifier si le LUT est déjà en cache
@@ -111,6 +114,9 @@ async function loadLUT(url) {
 
   try {
     const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
     const text = await response.text();
     
     // Trouver la taille du LUT
@@ -150,7 +156,8 @@ async function loadLUT(url) {
     return lutData;
   } catch (error) {
     console.error("Erreur lors du chargement du LUT:", url, error);
-    return null;
+    // Retourner le LUT par défaut en cas d'erreur
+    return lutCache.get("luts/kodak_portra_160.cube") || null;
   }
 }
 
@@ -159,10 +166,18 @@ async function preloadLUTs() {
   const lutSelect = document.getElementById('filmSelect');
   const lutOptions = Array.from(lutSelect.options).map(option => option.value);
   
+  // Ajouter un délai sur mobile pour éviter les problèmes de chargement
+  if (isMobile) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
   for (const lutName of lutOptions) {
     const url = `luts/${lutName}.cube`;
     try {
-      await loadLUT(url);
+      const lut = await loadLUT(url);
+      if (lut) {
+        lutCache.set(url, lut);
+      }
     } catch (error) {
       console.error(`Erreur lors du préchargement du LUT ${lutName}:`, error);
     }
@@ -245,71 +260,80 @@ document.getElementById("imageUpload").addEventListener("change", e => {
 document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!fullResImage) return;
 
-  // Créer un canvas de haute résolution
-  const exportCanvas = document.createElement("canvas");
-  const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
-  
-  // Calculer les dimensions optimales pour atteindre 2Mo
-  const targetSize = 2 * 1024 * 1024; // 2Mo en octets
-  const aspectRatio = fullResImage.width / fullResImage.height;
-  let exportWidth = fullResImage.width;
-  let exportHeight = fullResImage.height;
-  
-  // Augmenter la taille jusqu'à atteindre la cible de 2Mo
-  while (true) {
-    const estimatedSize = (exportWidth * exportHeight * 4) / 2; // Estimation de la taille en JPEG
-    if (estimatedSize >= targetSize) break;
+  try {
+    // Créer un canvas de haute résolution
+    const exportCanvas = document.createElement("canvas");
+    const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
     
-    exportWidth = Math.floor(exportWidth * 1.1);
-    exportHeight = Math.floor(exportWidth / aspectRatio);
+    // Calculer les dimensions optimales pour atteindre 2Mo
+    const targetSize = 2 * 1024 * 1024; // 2Mo en octets
+    const aspectRatio = fullResImage.width / fullResImage.height;
+    let exportWidth = fullResImage.width;
+    let exportHeight = fullResImage.height;
+    
+    // Augmenter la taille jusqu'à atteindre la cible de 2Mo
+    while (true) {
+      const estimatedSize = (exportWidth * exportHeight * 4) / 2; // Estimation de la taille en JPEG
+      if (estimatedSize >= targetSize) break;
+      
+      exportWidth = Math.floor(exportWidth * 1.1);
+      exportHeight = Math.floor(exportWidth / aspectRatio);
+    }
+    
+    exportCanvas.width = exportWidth;
+    exportCanvas.height = exportHeight;
+    
+    // Utiliser la meilleure qualité de rendu
+    exportCtx.imageSmoothingEnabled = true;
+    exportCtx.imageSmoothingQuality = 'high';
+    
+    // Dessiner l'image à la taille calculée
+    exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
+    
+    // Appliquer le LUT
+    if (lutData) {
+      const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
+      applyLUTToImage(imgData.data, lutData);
+      exportCtx.putImageData(imgData, 0, 0);
+    }
+    
+    // Appliquer le flou si nécessaire
+    if (blurAmount > 0) {
+      applyFastBlur(exportCtx, exportWidth, exportHeight, blurAmount / 100 * 20);
+    }
+    
+    // Ajouter le grain
+    addGrain(exportCtx, exportWidth, exportHeight, isoValues[selectedISO]);
+    
+    // Générer un nom de fichier unique
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
+    const lutName = currentLutName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+    const isoStr = selectedISO.toString();
+    const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
+    
+    // Convertir en Blob pour une meilleure qualité
+    const blob = await new Promise(resolve => {
+      exportCanvas.toBlob(resolve, 'image/jpeg', 0.95);
+    });
+    
+    if (!blob) {
+      throw new Error("Échec de la création du Blob");
+    }
+    
+    // Créer l'URL et télécharger
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = fileName;
+    link.href = url;
+    link.click();
+    
+    // Nettoyer l'URL
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  } catch (error) {
+    console.error("Erreur lors de l'export:", error);
+    alert("Une erreur est survenue lors de l'export. Veuillez réessayer.");
   }
-  
-  exportCanvas.width = exportWidth;
-  exportCanvas.height = exportHeight;
-  
-  // Utiliser la meilleure qualité de rendu
-  exportCtx.imageSmoothingEnabled = true;
-  exportCtx.imageSmoothingQuality = 'high';
-  
-  // Dessiner l'image à la taille calculée
-  exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
-  
-  // Appliquer le LUT
-  if (lutData) {
-    const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-    applyLUTToImage(imgData.data, lutData);
-    exportCtx.putImageData(imgData, 0, 0);
-  }
-  
-  // Appliquer le flou si nécessaire
-  if (blurAmount > 0) {
-    applyFastBlur(exportCtx, exportWidth, exportHeight, blurAmount / 100 * 20);
-  }
-  
-  // Ajouter le grain
-  addGrain(exportCtx, exportWidth, exportHeight, isoValues[selectedISO]);
-  
-  // Générer un nom de fichier unique
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
-  const lutName = currentLutName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
-  const isoStr = selectedISO.toString();
-  const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
-  
-  // Convertir en Blob pour une meilleure qualité
-  const blob = await new Promise(resolve => {
-    exportCanvas.toBlob(resolve, 'image/jpeg', 1.0);
-  });
-  
-  // Créer l'URL et télécharger
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.download = fileName;
-  link.href = url;
-  link.click();
-  
-  // Nettoyer l'URL
-  setTimeout(() => URL.revokeObjectURL(url), 100);
 });
 
 let selectedISO = 100;
@@ -341,9 +365,6 @@ let processingEffect = false;
 let pendingEffect = false;
 let lastEffectTime = 0;
 const THROTTLE_DELAY = 50; // Délai minimum entre les mises à jour sur mobile
-
-// Détection mobile
-const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 // Optimiser les gestionnaires d'événements pour les curseurs
 function createThrottledHandler(callback) {
