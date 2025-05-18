@@ -948,16 +948,16 @@ function applyFastBlur(ctx, width, height, radius) {
   const pixels = imgData.data;
   const tempPixels = new Uint8ClampedArray(pixels);
 
-  // Calculer le centre de l'image
+  // Calculate image center
   const centerX = width / 2;
   const centerY = height / 2;
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
 
-  // Optimiser le rayon pour les performances
+  // Optimize radius for performance
   const size = Math.max(1, Math.floor(radius * 0.5)) | 1;
   const halfSize = Math.floor(size / 2);
 
-  // Créer un masque radial inversé pour le flou
+  // Create radial mask with smoother transition
   const radialMask = new Float32Array(width * height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -965,12 +965,17 @@ function applyFastBlur(ctx, width, height, radius) {
       const dy = y - centerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       const normalizedDistance = distance / maxDistance;
-      // Inverser le masque : plus fort sur les bords, plus faible au centre
-      radialMask[y * width + x] = (1 - Math.pow(1 - normalizedDistance, 2)) * radius;
+      
+      // Modified sigmoid curve for smoother transition
+      // Adjusted parameters to make the transition more subtle:
+      // - Reduced the steepness (4 instead of 6)
+      // - Adjusted the base blur (0.4 to 0.6 range instead of 0.3 to 1.0)
+      const transition = 1 / (1 + Math.exp(-(normalizedDistance * 4 - 2))) * 0.2 + 0.4;
+      radialMask[y * width + x] = transition * radius;
     }
   }
 
-  // Appliquer le flou avec le masque radial inversé
+  // Apply blur with modified radial mask
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const maskValue = radialMask[y * width + x];
@@ -980,7 +985,7 @@ function applyFastBlur(ctx, width, height, radius) {
       let r = 0, g = 0, b = 0;
       let count = 0;
 
-      // Appliquer le flou local
+      // Apply local blur
       for (let dy = -localHalfSize; dy <= localHalfSize; dy++) {
         const ny = Math.min(Math.max(y + dy, 0), height - 1);
         for (let dx = -localHalfSize; dx <= localHalfSize; dx++) {
@@ -997,6 +1002,7 @@ function applyFastBlur(ctx, width, height, radius) {
       pixels[i] = r / count;
       pixels[i + 1] = g / count;
       pixels[i + 2] = b / count;
+      pixels[i + 3] = tempPixels[i + 3]; // Preserve original alpha
     }
   }
 
