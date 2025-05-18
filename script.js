@@ -119,7 +119,6 @@ const EXPORT_MAX_HEIGHT = 1350;
 async function loadLUT(url) {
   console.log("Tentative de chargement du LUT:", url);
   
-  // Vérifier si le LUT est déjà en cache
   if (lutCache.has(url)) {
     console.log("LUT trouvé dans le cache");
     return lutCache.get(url);
@@ -142,18 +141,18 @@ async function loadLUT(url) {
     const lines = text.split('\n')
       .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
       .map(line => line.trim())
-      .filter(line => line.length > 0 && line.split(' ').length >= 3);
+      .filter(line => line.length > 0 && line.split(/\s+/).length >= 3);
     
     console.log("Nombre de lignes de données:", lines.length);
     
-    // Convertir les lignes en valeurs RGB
+    // Convertir les lignes en valeurs RGB avec validation supplémentaire
     const values = lines.map(line => {
-      const [r, g, b] = line.split(' ').map(parseFloat);
-      return [
-        Math.min(1, Math.max(0, r)),
-        Math.min(1, Math.max(0, g)),
-        Math.min(1, Math.max(0, b))
-      ];
+      const [r, g, b] = line.split(/\s+/).map(v => {
+        const val = parseFloat(v);
+        // S'assurer que les valeurs sont dans la plage [0,1]
+        return isNaN(val) ? 0 : Math.min(1, Math.max(0, val));
+      });
+      return [r, g, b];
     });
 
     // Vérifier si le LUT est en noir et blanc
@@ -164,11 +163,23 @@ async function loadLUT(url) {
       console.error("LUT invalide - pas de données:", url);
       return null;
     }
+
+    // Vérifier si nous avons le bon nombre de valeurs pour la taille du LUT
+    const expectedValues = size * size * size;
+    if (values.length !== expectedValues) {
+      console.warn(`Attention: Nombre de valeurs incorrect. Attendu: ${expectedValues}, Reçu: ${values.length}`);
+      // Compléter ou tronquer si nécessaire
+      while (values.length < expectedValues) {
+        values.push([0, 0, 0]);
+      }
+      if (values.length > expectedValues) {
+        values.length = expectedValues;
+      }
+    }
     
     const lutData = { size, values, isBlackAndWhite };
     console.log("LUT chargé avec succès:", lutName);
     
-    // Mettre en cache le LUT
     lutCache.set(url, lutData);
     
     return lutData;
@@ -922,11 +933,11 @@ const blackAndWhiteLUTs = [
   'ilford_delta_3200',
   'ilford_xp2_super_400',
   'ilford_pan_f_plus_50',
-  'kodak_tmax_100',
   'kodak_tmax_3200',
   'kodak_tmax_400',
   'kodak_trix_400',
-  'CLASSIC_NOIR'
+  'CLASSIC_NOIR',
+  'blue_noir'
 ];
 
 // New optimized blur function
