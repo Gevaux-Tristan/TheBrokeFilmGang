@@ -802,7 +802,7 @@ function addGrain(ctx, width, height, amount) {
     // Generate multiple octaves of noise
     for (let octave = 0; octave < octaves; octave++) {
       const freq = Math.max(1, Math.floor(baseFreq * Math.pow(2, octave)));
-      const amp = amount * Math.pow(0.4, octave); // Reduce amplitude more quickly for higher octaves
+      const amp = amount * Math.pow(0.5, octave); // Increased base amplitude
       
       for (let y = 0; y < height; y += freq) {
         for (let x = 0; x < width; x += freq) {
@@ -811,10 +811,10 @@ function addGrain(ctx, width, height, amount) {
           for (let i = 0; i < 3; i++) {
             noise += (Math.random() * 2 - 1);
           }
-          noise = (noise / 3) * amp;
+          noise = (noise / 3) * amp * 1.5; // Increased overall intensity
           
           // Apply noise to surrounding pixels with gaussian-like falloff
-          const radius = freq * 0.7; // Reduced radius for finer grain
+          const radius = freq * 0.7;
           const radiusSq = radius * radius;
           
           const startY = Math.max(0, Math.floor(y - radius));
@@ -831,8 +831,7 @@ function addGrain(ctx, width, height, amount) {
               const distSq = (dx * dx + dySq) / radiusSq;
               
               if (distSq < 1) {
-                // Sharper falloff for finer grain
-                const falloff = Math.exp(-distSq * 3);
+                const falloff = Math.exp(-distSq * 2.5);
                 const idx = py * width + px;
                 buffer[idx] += noise * falloff;
               }
@@ -844,10 +843,9 @@ function addGrain(ctx, width, height, amount) {
   }
   
   // Generate slightly different noise patterns for each color channel
-  // Use higher frequencies for finer grain
-  generateSmoothNoise(noiseBufferR, 2, 3); // Fine grain for red
-  generateSmoothNoise(noiseBufferG, 2, 3); // Fine grain for green
-  generateSmoothNoise(noiseBufferB, 2, 3); // Fine grain for blue
+  generateSmoothNoise(noiseBufferR, 2, 3);
+  generateSmoothNoise(noiseBufferG, 2, 3);
+  generateSmoothNoise(noiseBufferB, 2, 3);
   
   // Apply grain with luminance dependency and color variation
   for (let y = 0; y < height; y++) {
@@ -859,7 +857,7 @@ function addGrain(ctx, width, height, amount) {
       
       // Adjust grain strength based on luminance
       // More visible in shadows and midtones, less in highlights
-      const luminanceMultiplier = Math.pow(1.2 - luminance, 1.2); // Gentler luminance curve
+      const luminanceMultiplier = Math.pow(1.3 - luminance, 1.2); // Increased base luminance effect
       
       // Get noise values for each channel
       const idx = y * width + x;
@@ -868,27 +866,30 @@ function addGrain(ctx, width, height, amount) {
       const noiseB = noiseBufferB[idx] * luminanceMultiplier;
       
       // Apply noise with minimal color cross-talk
-      const crossTalk = 0.1; // Reduced color bleeding to 10%
+      const crossTalk = 0.15; // Slightly increased color bleeding
       const r = noiseR + (noiseG + noiseB) * crossTalk;
       const g = noiseG + (noiseR + noiseB) * crossTalk;
       const b = noiseB + (noiseR + noiseG) * crossTalk;
       
-      // Use overlay blending mode for more natural grain
-      function overlayBlend(base, grain) {
+      // Use soft-light blending mode for more visible but natural grain
+      function softLightBlend(base, grain) {
         const baseValue = base / 255;
         const grainValue = (grain + 1) / 2; // Convert from [-1,1] to [0,1]
         let result;
-        if (baseValue < 0.5) {
-          result = 2 * baseValue * grainValue;
+        if (grainValue <= 0.5) {
+          result = baseValue - (1 - 2 * grainValue) * baseValue * (1 - baseValue);
         } else {
-          result = 1 - 2 * (1 - baseValue) * (1 - grainValue);
+          const d = baseValue <= 0.25 ? 
+            ((16 * baseValue - 12) * baseValue + 4) * baseValue :
+            Math.sqrt(baseValue);
+          result = baseValue + (2 * grainValue - 1) * (d - baseValue);
         }
         return Math.min(255, Math.max(0, result * 255));
       }
       
-      data[i] = overlayBlend(data[i], r);
-      data[i+1] = overlayBlend(data[i+1], g);
-      data[i+2] = overlayBlend(data[i+2], b);
+      data[i] = softLightBlend(data[i], r);
+      data[i+1] = softLightBlend(data[i+1], g);
+      data[i+2] = softLightBlend(data[i+2], b);
     }
   }
   
@@ -1066,12 +1067,12 @@ if (resetBtn) {
 // ISO grain logic
 const isoValues = {
   0: 0,         // No grain
-  100: 0.008,   // Very light grain
-  200: 0.012,   // Light grain
-  400: 0.018,   // Medium grain
-  800: 0.025,   // Medium-strong grain
-  1600: 0.035,  // Strong grain
-  3200: 0.045   // Very strong grain
+  100: 0.02,    // Very light grain
+  200: 0.035,   // Light grain
+  400: 0.05,    // Medium grain
+  800: 0.07,    // Medium-strong grain
+  1600: 0.09,   // Strong grain
+  3200: 0.12    // Very strong grain
 };
 
 // Liste des LUTs noir et blanc
