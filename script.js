@@ -376,51 +376,30 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
       if (contrastAmount !== 0) {
         const contrastFactor = contrastAmount / 100;
-        if (contrastFactor < 0) {
-          const fadeAmount = Math.abs(contrastFactor);
-          const gray = 0.5;
-          r = r * (1 - fadeAmount) + gray * fadeAmount;
-          g = g * (1 - fadeAmount) + gray * fadeAmount;
-          b = b * (1 - fadeAmount) + gray * fadeAmount;
-        } else {
-          r = applyContrast(r, contrastFactor);
-          g = applyContrast(g, contrastFactor);
-          b = applyContrast(b, contrastFactor);
-        }
+        r = applyContrast(r, contrastFactor);
+        g = applyContrast(g, contrastFactor);
+        b = applyContrast(b, contrastFactor);
       }
 
-      data[i] = r * 255;
-      data[i + 1] = g * 255;
-      data[i + 2] = b * 255;
+      data[i] = Math.round(r * 255);
+      data[i + 1] = Math.round(g * 255);
+      data[i + 2] = Math.round(b * 255);
     }
   }
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply blur if needed - scale blur radius based on resolution
+  // Apply blur if needed
   if (blurAmount > 0) {
     const maxBlur = 20;
-    let blurRadius = (blurAmount / 100) * maxBlur;
-    
-    // Scale blur radius based on resolution difference
-    if (isExport) {
-      const previewWidth = isMobile ? 640 : 1200;
-      const scaleFactor = width / previewWidth;
-      blurRadius *= scaleFactor;
-    }
-    
+    const blurRadius = (blurAmount / 100) * maxBlur;
     applyFastBlur(ctx, width, height, blurRadius);
   }
 
-  // Scale grain amount based on resolution
-  let grainAmount = isoValues[selectedISO];
-  if (isExport) {
-    const previewWidth = isMobile ? 640 : 1200;
-    const scaleFactor = width / previewWidth;
-    grainAmount *= scaleFactor;
+  // Apply grain
+  if (selectedISO > 0) {
+    addGrain(ctx, width, height, selectedISO);
   }
-  
-  addGrain(ctx, width, height, grainAmount);
 }
 
 function applyEffects(immediate = false) {
@@ -429,8 +408,6 @@ function applyEffects(immediate = false) {
     return;
   }
 
-  console.log('Starting to apply effects');
-
   if (processingEffect && !immediate) {
     console.log('Already processing effects, queueing update');
     pendingEffect = true;
@@ -438,7 +415,6 @@ function applyEffects(immediate = false) {
   }
 
   processingEffect = true;
-  console.log('Processing effects with LUT:', currentLutName);
 
   const maxWidth = isMobile ? MOBILE_MAX_WIDTH : DESKTOP_MAX_WIDTH;
   const maxHeight = isMobile ? MOBILE_MAX_HEIGHT : DESKTOP_MAX_HEIGHT;
@@ -455,105 +431,19 @@ function applyEffects(immediate = false) {
     newWidth = newHeight * aspectRatio;
   }
   
-  // Round dimensions to improve performance
   newWidth = Math.floor(newWidth);
   newHeight = Math.floor(newHeight);
-  
-  console.log('Canvas dimensions:', newWidth, 'x', newHeight);
   
   canvas.width = newWidth;
   canvas.height = newHeight;
   
   ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
-  console.log('Drew image to canvas');
   
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imgData.data;
-  const originalData = new Uint8ClampedArray(data);
+  processImageEffects(ctx, newWidth, newHeight, false);
 
-  // Apply LUT if available
-  if (lutData) {
-    console.log('Applying LUT with intensity:', lutIntensity);
-    const lutProcessedData = new Uint8ClampedArray(data);
-    try {
-      applyLUTToImage(lutProcessedData, lutData);
-      
-      // Use a faster blending operation on mobile
-      if (isMobile) {
-        const intensity = Math.round(lutIntensity * 255);
-        const invIntensity = 255 - intensity;
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = (originalData[i] * invIntensity + lutProcessedData[i] * intensity) >> 8;
-          data[i + 1] = (originalData[i + 1] * invIntensity + lutProcessedData[i + 1] * intensity) >> 8;
-          data[i + 2] = (originalData[i + 2] * invIntensity + lutProcessedData[i + 2] * intensity) >> 8;
-        }
-      } else {
-        for (let i = 0; i < data.length; i += 4) {
-          for (let c = 0; c < 3; c++) {
-            data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
-          }
-        }
-      }
-      console.log('LUT applied successfully');
-    } catch (error) {
-      console.error('Error applying LUT:', error);
-      data.set(originalData);
-    }
-  } else {
-    console.warn('No LUT data available');
-  }
-
-  // Apply exposure and contrast
-  if (exposureAmount !== 0 || contrastAmount !== 0) {
-    console.log('Applying exposure and contrast:', { exposure: exposureAmount, contrast: contrastAmount });
-    for (let i = 0; i < data.length; i += 4) {
-      let r = data[i] / 255;
-      let g = data[i + 1] / 255;
-      let b = data[i + 2] / 255;
-
-      if (exposureAmount !== 0) {
-        const exposureFactor = Math.pow(2, exposureAmount);
-        r = Math.min(1, Math.max(0, r * exposureFactor));
-        g = Math.min(1, Math.max(0, g * exposureFactor));
-        b = Math.min(1, Math.max(0, b * exposureFactor));
-      }
-
-      if (contrastAmount !== 0) {
-        const contrastFactor = contrastAmount / 100;
-        r = applyContrast(r, contrastFactor);
-        g = applyContrast(g, contrastFactor);
-        b = applyContrast(b, contrastFactor);
-      }
-
-      data[i] = Math.round(r * 255);
-      data[i + 1] = Math.round(g * 255);
-      data[i + 2] = Math.round(b * 255);
-    }
-    console.log('Exposure and contrast applied');
-  }
-
-  ctx.putImageData(imgData, 0, 0);
-
-  // Apply blur if needed
-  if (blurAmount > 0) {
-    console.log('Applying blur:', blurAmount);
-    const maxBlur = 20;
-    const blurRadius = (blurAmount / 100) * maxBlur;
-    applyFastBlur(ctx, newWidth, newHeight, blurRadius);
-  }
-
-  // Apply grain
-  const grainAmount = isoValues[selectedISO];
-  if (grainAmount > 0) {
-    console.log('Applying grain with ISO:', selectedISO, 'amount:', grainAmount);
-    addGrain(ctx, newWidth, newHeight, grainAmount);
-  }
-
-  console.log('All effects applied');
   processingEffect = false;
 
   if (pendingEffect) {
-    console.log('Processing pending effect');
     pendingEffect = false;
     requestAnimationFrame(() => applyEffects(true));
   }
@@ -655,7 +545,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     // Scale grain for export resolution
     const previewWidth = isMobile ? 640 : 1200;
     const scaleFactor = exportWidth / previewWidth;
-    const grainAmount = isoValues[selectedISO] * scaleFactor;
+    const grainAmount = selectedISO * scaleFactor;
     addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
     
     // Générer un nom de fichier unique
@@ -735,14 +625,10 @@ function createThrottledHandler(callback) {
 
 // Appliquer les gestionnaires optimisés aux curseurs
 isoSlider.addEventListener('input', createThrottledHandler(() => {
-  const value = parseInt(isoSlider.value);
-  selectedISO = value;
-  
-  // Update the display with percentage
+  selectedISO = parseInt(isoSlider.value);
   if (isoValueSpan) {
-    isoValueSpan.textContent = value + '%';
+    isoValueSpan.textContent = selectedISO + '%';
   }
-  
   if (fullResImage) applyEffects(true);
 }));
 
