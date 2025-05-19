@@ -154,60 +154,61 @@ function createThrottledHandler(callback) {
 
 // Optimize image processing
 function processImageEffects(ctx, width, height, isExport = false) {
+  // Get image data for processing
   const imgData = ctx.getImageData(0, 0, width, height);
   const data = imgData.data;
   const originalData = new Uint8ClampedArray(data);
-  let needsUpdate = false;
 
-  // Apply LUT if present and intensity > 0
+  // Apply LUT first if present and intensity > 0
   if (lutData && lutIntensity > 0) {
-    const lutProcessedData = new Uint8ClampedArray(data);
     try {
-      applyLUTToImage(lutProcessedData, lutData);
-      
-      // Optimize blending operation
-      const intensity = Math.round(lutIntensity * 255);
-      const invIntensity = 255 - intensity;
-      
+      // Process LUT in place to avoid extra array allocation
       for (let i = 0; i < data.length; i += 4) {
-        data[i] = (originalData[i] * invIntensity + lutProcessedData[i] * intensity) >> 8;
-        data[i + 1] = (originalData[i + 1] * invIntensity + lutProcessedData[i + 1] * intensity) >> 8;
-        data[i + 2] = (originalData[i + 2] * invIntensity + lutProcessedData[i + 2] * intensity) >> 8;
+        const r = originalData[i] / 255;
+        const g = originalData[i + 1] / 255;
+        const b = originalData[i + 2] / 255;
+        
+        const newColor = trilinearLUTLookup(lutData, r, g, b);
+        
+        // Apply LUT intensity
+        data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
+        data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
+        data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
       }
-      needsUpdate = true;
     } catch (error) {
       console.error("Error applying LUT:", error);
       data.set(originalData);
     }
   }
 
-  // Apply exposure and contrast only if needed
+  // Apply exposure and contrast
   if (exposureAmount !== 0 || contrastAmount !== 0) {
-    const exposureFactor = exposureAmount !== 0 ? Math.pow(2, exposureAmount) : 1;
+    const exposureFactor = Math.pow(2, exposureAmount);
     const contrastFactor = contrastAmount / 100;
     
     for (let i = 0; i < data.length; i += 4) {
       for (let j = 0; j < 3; j++) {
         let value = data[i + j] / 255;
         
+        // Apply exposure first
         if (exposureAmount !== 0) {
-          value = Math.min(1, Math.max(0, value * exposureFactor));
+          value = value * exposureFactor;
         }
         
+        // Then apply contrast
         if (contrastAmount !== 0) {
-          value = applyContrast(value, contrastFactor);
+          value = value - 0.5;
+          value = value * (1 + contrastFactor);
+          value = value + 0.5;
         }
         
-        data[i + j] = Math.round(value * 255);
+        // Clamp values
+        data[i + j] = Math.round(Math.max(0, Math.min(1, value)) * 255);
       }
     }
-    needsUpdate = true;
   }
 
-  // Only update image data if changes were made
-  if (needsUpdate) {
-    ctx.putImageData(imgData, 0, 0);
-  }
+  ctx.putImageData(imgData, 0, 0);
 
   // Apply blur if needed
   if (blurAmount > 0) {
@@ -475,26 +476,33 @@ function addGrain(ctx, width, height, amount) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
-  // Use a single noise buffer for better performance
+  // Generate noise pattern
   const noiseBuffer = new Float32Array(width * height);
-  
-  // Simplified noise generation
   for (let i = 0; i < noiseBuffer.length; i++) {
     noiseBuffer[i] = (Math.random() * 2 - 1) * grainIntensity;
   }
   
-  // Apply noise with optimized luminance calculation
+  // Apply noise with luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
     const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.5);
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
-      data[i + j] = Math.max(0, Math.min(255, Math.round(
-        ((value > 0.5) ? 
-          (1 - (1 - 2 * (value - 0.5)) * (1 - noiseValue)) : 
-          (2 * value * (1 + noiseValue))) * 255
-      )));
+      // Use soft-light blending for more natural grain
+      const grainValue = (noiseValue + 1) / 2;
+      let result;
+      
+      if (grainValue <= 0.5) {
+        result = value - (1 - 2 * grainValue) * value * (1 - value);
+      } else {
+        const d = value <= 0.25 ? 
+          ((16 * value - 12) * value + 4) * value :
+          Math.sqrt(value);
+        result = value + (2 * grainValue - 1) * (d - value);
+      }
+      
+      data[i + j] = Math.round(Math.max(0, Math.min(1, result)) * 255);
     }
   }
   
@@ -717,6 +725,31 @@ function applyFastBlur(ctx, width, height, radius) {
         pixels[i] = r / count;
         pixels[i + 1] = g / count;
         pixels[i + 2] = b / count;
+        pixels[i + 3] = tempPixels[i + 3]; // Preserve alpha
+      }
+    }
+    
+    // Vertical pass
+    tempPixels.set(pixels);
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        let r = 0, g = 0, b = 0, count = 0;
+        const range = Math.ceil(iterationRadius);
+        
+        for (let dy = -range; dy <= range; dy++) {
+          const ny = Math.min(Math.max(y + dy, 0), height - 1);
+          const i = (ny * width + x) * 4;
+          r += tempPixels[i];
+          g += tempPixels[i + 1];
+          b += tempPixels[i + 2];
+          count++;
+        }
+        
+        const i = (y * width + x) * 4;
+        pixels[i] = r / count;
+        pixels[i + 1] = g / count;
+        pixels[i + 2] = b / count;
+        pixels[i + 3] = tempPixels[i + 3]; // Preserve alpha
       }
     }
     
