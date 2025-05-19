@@ -124,270 +124,90 @@ const DESKTOP_MAX_HEIGHT = 1200;
 const EXPORT_MAX_WIDTH = 1080;
 const EXPORT_MAX_HEIGHT = 1350;
 
-// Optimiser le chargement des LUTs
-async function loadLUT(url) {
-  console.log("Loading LUT:", url);
+// Increase throttle delay for better performance
+const THROTTLE_DELAY = isMobile ? 150 : 50; // Longer delay on mobile
 
-  try {
-    console.log("Fetching LUT from server");
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-    const text = await response.text();
-    
-    // Find LUT size
-    const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
-    const size = sizeMatch ? parseInt(sizeMatch[1]) : 33;
-    console.log("LUT size:", size);
-    
-    // Filter and normalize data lines
-    const lines = text.split('\n')
-      .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && line.split(/\s+/).length >= 3);
-    
-    console.log("Number of data lines:", lines.length);
-    
-    // Convert lines to RGB values with additional validation
-    const values = lines.map(line => {
-      const [r, g, b] = line.split(/\s+/).map(v => {
-        const val = parseFloat(v);
-        // Ensure values are in range [0,1]
-        return isNaN(val) ? 0 : Math.min(1, Math.max(0, val));
-      });
-      return [r, g, b];
-    });
-
-    // Check if LUT is black and white
-    const lutName = url.split('/').pop().replace('.cube', '');
-    const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
-    
-    if (!values.length) {
-      console.error("Invalid LUT - no data:", url);
-      return null;
-    }
-
-    // Check if we have the correct number of values for the LUT size
-    const expectedValues = size * size * size;
-    if (values.length !== expectedValues) {
-      console.warn(`Warning: Incorrect number of values. Expected: ${expectedValues}, Got: ${values.length}`);
-      // Complete or truncate if necessary
-      while (values.length < expectedValues) {
-        values.push([0, 0, 0]);
-      }
-      if (values.length > expectedValues) {
-        values.length = expectedValues;
-      }
-    }
-
-    // Validate final LUT data
-    const lutData = {
-      size,
-      values,
-      isBlackAndWhite
-    };
-
-    // Basic validation of LUT data
-    if (!lutData.size || !lutData.values || !Array.isArray(lutData.values)) {
-      console.error("Invalid LUT data structure:", lutData);
-      return null;
-    }
-
-    // Cache the LUT
-    lutCache.set(url, lutData);
-    console.log("LUT loaded and cached successfully");
-    
-    return lutData;
-  } catch (error) {
-    console.error("Error loading LUT:", error);
-    return null;
-  }
-}
-
-// Précharger les LUTs au démarrage
-async function preloadLUTs() {
-  console.log("Début du préchargement des LUTs");
-  const lutSelect = document.getElementById('filmSelect');
-  const lutOptions = Array.from(lutSelect.options).map(option => option.value);
+// Optimize throttling function
+function createThrottledHandler(callback) {
+  let timeoutId = null;
+  let lastRun = 0;
   
-  for (const lutName of lutOptions) {
-    const url = `luts/${lutName}.cube`;
-    try {
-      const lut = await loadLUT(url);
-      if (lut) {
-        console.log(`LUT préchargé avec succès: ${lutName}`);
-      } else {
-        console.warn(`Échec du préchargement du LUT: ${lutName}`);
-      }
-    } catch (error) {
-      console.error(`Erreur lors du préchargement du LUT ${lutName}:`, error);
+  return function(...args) {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
     }
-  }
-  console.log("Fin du préchargement des LUTs");
-}
 
-// Appeler le préchargement au démarrage
-document.addEventListener('DOMContentLoaded', preloadLUTs);
+    const now = Date.now();
+    const timeSinceLastRun = now - lastRun;
 
-// Modifier l'événement de changement de LUT
-document.getElementById("filmSelect").addEventListener("change", async () => {
-  const selectedFilm = document.getElementById("filmSelect").value;
-  console.log("Changing LUT to:", selectedFilm);
-  currentLutName = selectedFilm;
-  
-  // Utiliser le LUT du cache s'il existe
-  const lutUrl = "luts/" + selectedFilm + ".cube";
-  console.log("Checking LUT cache for:", lutUrl);
-  lutData = lutCache.get(lutUrl);
-  
-  if (!lutData) {
-    console.log("LUT not found in cache, loading from file:", lutUrl);
-    try {
-      lutData = await loadLUT(lutUrl);
-      if (!lutData) {
-        console.error("Failed to load LUT:", lutUrl);
-        return;
-      }
-    } catch (error) {
-      console.error("Error loading LUT:", error);
-      return;
+    if (timeSinceLastRun >= THROTTLE_DELAY) {
+      callback.apply(this, args);
+      lastRun = now;
+    } else {
+      timeoutId = setTimeout(() => {
+        callback.apply(this, args);
+        lastRun = Date.now();
+      }, THROTTLE_DELAY - timeSinceLastRun);
     }
-  } else {
-    console.log("Using cached LUT data:", {
-      size: lutData.size,
-      valuesLength: lutData.values.length,
-      sampleValues: lutData.values.slice(0, 3)
-    });
-  }
-  
-  if (lutData) {
-    console.log("LUT ready to apply:", {
-      size: lutData.size,
-      valuesLength: lutData.values.length,
-      isBlackAndWhite: lutData.isBlackAndWhite,
-      sampleValues: lutData.values.slice(0, 3)
-    });
-    if (fullResImage) {
-      requestAnimationFrame(() => applyEffects(true));
-    }
-  } else {
-    console.error("Unable to load LUT:", selectedFilm);
-  }
-});
-
-// Helper function for contrast adjustment
-function applyContrast(x, c) {
-  if (c === 0) return x;
-  
-  // Limiter la plage de contraste entre -0.5 et 0.5
-  const limitedC = Math.max(-0.5, Math.min(0.5, c));
-  
-  if (limitedC > 0) {
-    // Contraste positif
-    const factor = 1 + limitedC;
-    return Math.min(1, Math.max(0, (x - 0.5) * factor + 0.5));
-  } else {
-    // Contraste négatif (fade)
-    const factor = 1 + limitedC;
-    const gray = 0.5;
-    return Math.min(1, Math.max(0, x * factor + gray * (1 - factor)));
-  }
-}
-
-document.getElementById("imageUpload").addEventListener("change", e => {
-  const file = e.target.files[0];
-  const reader = new FileReader();
-  reader.onload = function (event) {
-    const img = new Image();
-    img.onload = function () {
-      fullResImage = img;
-      // Définir les dimensions maximales
-      const maxWidth = 800;
-      const maxHeight = 800;
-      
-      // Calculer le ratio d'aspect
-      const aspectRatio = img.width / img.height;
-      
-      // Calculer les nouvelles dimensions en préservant le ratio
-      let newWidth = img.width;
-      let newHeight = img.height;
-      
-      if (newWidth > maxWidth) {
-        newWidth = maxWidth;
-        newHeight = newWidth / aspectRatio;
-      }
-      
-      if (newHeight > maxHeight) {
-        newHeight = maxHeight;
-        newWidth = newHeight * aspectRatio;
-      }
-      
-      canvas.width = newWidth;
-      canvas.height = newHeight;
-      applyEffects();
-    };
-    img.src = event.target.result;
   };
-  reader.readAsDataURL(file);
-});
+}
 
+// Optimize image processing
 function processImageEffects(ctx, width, height, isExport = false) {
-  // Get image data for processing
   const imgData = ctx.getImageData(0, 0, width, height);
   const data = imgData.data;
-
-  // Create a copy of the original data for independent processing
   const originalData = new Uint8ClampedArray(data);
+  let needsUpdate = false;
 
-  // Apply LUT first if present
-  if (lutData) {
-    // Create a temporary array for LUT processing
+  // Apply LUT if present and intensity > 0
+  if (lutData && lutIntensity > 0) {
     const lutProcessedData = new Uint8ClampedArray(data);
-    
     try {
       applyLUTToImage(lutProcessedData, lutData);
       
-      // Blend LUT result with original based on intensity
+      // Optimize blending operation
+      const intensity = Math.round(lutIntensity * 255);
+      const invIntensity = 255 - intensity;
+      
       for (let i = 0; i < data.length; i += 4) {
-        for (let c = 0; c < 3; c++) {
-          data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
-        }
+        data[i] = (originalData[i] * invIntensity + lutProcessedData[i] * intensity) >> 8;
+        data[i + 1] = (originalData[i + 1] * invIntensity + lutProcessedData[i + 1] * intensity) >> 8;
+        data[i + 2] = (originalData[i + 2] * invIntensity + lutProcessedData[i + 2] * intensity) >> 8;
       }
+      needsUpdate = true;
     } catch (error) {
       console.error("Error applying LUT:", error);
       data.set(originalData);
     }
   }
 
-  // Apply exposure and contrast
+  // Apply exposure and contrast only if needed
   if (exposureAmount !== 0 || contrastAmount !== 0) {
+    const exposureFactor = exposureAmount !== 0 ? Math.pow(2, exposureAmount) : 1;
+    const contrastFactor = contrastAmount / 100;
+    
     for (let i = 0; i < data.length; i += 4) {
-      let r = data[i] / 255;
-      let g = data[i + 1] / 255;
-      let b = data[i + 2] / 255;
-
-      if (exposureAmount !== 0) {
-        const exposureFactor = Math.pow(2, exposureAmount);
-        r = Math.min(1, Math.max(0, r * exposureFactor));
-        g = Math.min(1, Math.max(0, g * exposureFactor));
-        b = Math.min(1, Math.max(0, b * exposureFactor));
+      for (let j = 0; j < 3; j++) {
+        let value = data[i + j] / 255;
+        
+        if (exposureAmount !== 0) {
+          value = Math.min(1, Math.max(0, value * exposureFactor));
+        }
+        
+        if (contrastAmount !== 0) {
+          value = applyContrast(value, contrastFactor);
+        }
+        
+        data[i + j] = Math.round(value * 255);
       }
-
-      if (contrastAmount !== 0) {
-        const contrastFactor = contrastAmount / 100;
-        r = applyContrast(r, contrastFactor);
-        g = applyContrast(g, contrastFactor);
-        b = applyContrast(b, contrastFactor);
-      }
-
-      data[i] = Math.round(r * 255);
-      data[i + 1] = Math.round(g * 255);
-      data[i + 2] = Math.round(b * 255);
     }
+    needsUpdate = true;
   }
 
-  ctx.putImageData(imgData, 0, 0);
+  // Only update image data if changes were made
+  if (needsUpdate) {
+    ctx.putImageData(imgData, 0, 0);
+  }
 
   // Apply blur if needed
   if (blurAmount > 0) {
@@ -396,7 +216,7 @@ function processImageEffects(ctx, width, height, isExport = false) {
     applyFastBlur(ctx, width, height, blurRadius);
   }
 
-  // Apply grain
+  // Apply grain if needed
   if (selectedISO > 0) {
     addGrain(ctx, width, height, selectedISO);
   }
@@ -607,21 +427,6 @@ const blurValueSpan = document.getElementById('blurValue');
 let processingEffect = false;
 let pendingEffect = false;
 let lastEffectTime = 0;
-const THROTTLE_DELAY = 50; // Délai minimum entre les mises à jour sur mobile
-
-// Optimiser les gestionnaires d'événements pour les curseurs
-function createThrottledHandler(callback) {
-  let waiting = false;
-  return function() {
-    if (!waiting) {
-      waiting = true;
-      requestAnimationFrame(() => {
-        callback.apply(this, arguments);
-        waiting = false;
-      });
-    }
-  };
-}
 
 // Appliquer les gestionnaires optimisés aux curseurs
 isoSlider.addEventListener('input', createThrottledHandler(() => {
@@ -662,116 +467,34 @@ if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
 if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
 if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 
+// Optimize grain generation
 function addGrain(ctx, width, height, amount) {
   if (amount <= 0) return;
   
-  // Convert percentage (0-100) to grain intensity (0-0.25)
-  // Increased maximum intensity from 0.12 to 0.25 for stronger grain effect
   const grainIntensity = (amount / 100) * 0.25;
-  
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
-  // Create separate noise channels for RGB to simulate color film grain
-  const noiseBufferR = new Float32Array(width * height);
-  const noiseBufferG = new Float32Array(width * height);
-  const noiseBufferB = new Float32Array(width * height);
+  // Use a single noise buffer for better performance
+  const noiseBuffer = new Float32Array(width * height);
   
-  // Generate perlin-like noise for more natural grain pattern
-  function generateSmoothNoise(buffer, baseFreq, octaves) {
-    buffer.fill(0);
-    
-    // Generate multiple octaves of noise
-    for (let octave = 0; octave < octaves; octave++) {
-      const freq = Math.max(1, Math.floor(baseFreq * Math.pow(2, octave)));
-      const amp = grainIntensity * Math.pow(0.5, octave); // Use grainIntensity directly
-      
-      for (let y = 0; y < height; y += freq) {
-        for (let x = 0; x < width; x += freq) {
-          // Generate smoother noise using multiple random samples
-          let noise = 0;
-          for (let i = 0; i < 3; i++) {
-            noise += (Math.random() * 2 - 1);
-          }
-          noise = (noise / 3) * amp * 1.5; // Increased overall intensity
-          
-          // Apply noise to surrounding pixels with gaussian-like falloff
-          const radius = freq * 0.7;
-          const radiusSq = radius * radius;
-          
-          const startY = Math.max(0, Math.floor(y - radius));
-          const endY = Math.min(height, Math.ceil(y + radius));
-          const startX = Math.max(0, Math.floor(x - radius));
-          const endX = Math.min(width, Math.ceil(x + radius));
-          
-          for (let py = startY; py < endY; py++) {
-            const dy = py - y;
-            const dySq = dy * dy;
-            
-            for (let px = startX; px < endX; px++) {
-              const dx = px - x;
-              const distSq = (dx * dx + dySq) / radiusSq;
-              
-              if (distSq < 1) {
-                const falloff = Math.exp(-distSq * 2.5);
-                const idx = py * width + px;
-                buffer[idx] += noise * falloff;
-              }
-            }
-          }
-        }
-      }
-    }
+  // Simplified noise generation
+  for (let i = 0; i < noiseBuffer.length; i++) {
+    noiseBuffer[i] = (Math.random() * 2 - 1) * grainIntensity;
   }
   
-  // Generate slightly different noise patterns for each color channel
-  generateSmoothNoise(noiseBufferR, 2, 3);
-  generateSmoothNoise(noiseBufferG, 2, 3);
-  generateSmoothNoise(noiseBufferB, 2, 3);
-  
-  // Apply grain with luminance dependency and color variation
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const i = (y * width + x) * 4;
-      
-      // Calculate luminance
-      const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
-      
-      // Adjust grain strength based on luminance
-      // More visible in shadows and midtones, less in highlights
-      const luminanceMultiplier = Math.pow(1.3 - luminance, 1.2); // Increased base luminance effect
-      
-      // Get noise values for each channel
-      const idx = y * width + x;
-      const noiseR = noiseBufferR[idx] * luminanceMultiplier;
-      const noiseG = noiseBufferG[idx] * luminanceMultiplier;
-      const noiseB = noiseBufferB[idx] * luminanceMultiplier;
-      
-      // Apply noise with minimal color cross-talk
-      const crossTalk = 0.15; // Slightly increased color bleeding
-      const r = noiseR + (noiseG + noiseB) * crossTalk;
-      const g = noiseG + (noiseR + noiseB) * crossTalk;
-      const b = noiseB + (noiseR + noiseG) * crossTalk;
-      
-      // Use soft-light blending mode for more visible but natural grain
-      function softLightBlend(base, grain) {
-        const baseValue = base / 255;
-        const grainValue = (grain + 1) / 2; // Convert from [-1,1] to [0,1]
-        let result;
-        if (grainValue <= 0.5) {
-          result = baseValue - (1 - 2 * grainValue) * baseValue * (1 - baseValue);
-        } else {
-          const d = baseValue <= 0.25 ? 
-            ((16 * baseValue - 12) * baseValue + 4) * baseValue :
-            Math.sqrt(baseValue);
-          result = baseValue + (2 * grainValue - 1) * (d - baseValue);
-        }
-        return Math.min(255, Math.max(0, result * 255));
-      }
-      
-      data[i] = softLightBlend(data[i], r);
-      data[i+1] = softLightBlend(data[i+1], g);
-      data[i+2] = softLightBlend(data[i+2], b);
+  // Apply noise with optimized luminance calculation
+  for (let i = 0; i < data.length; i += 4) {
+    const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.5);
+    
+    for (let j = 0; j < 3; j++) {
+      const value = data[i + j] / 255;
+      data[i + j] = Math.max(0, Math.min(255, Math.round(
+        ((value > 0.5) ? 
+          (1 - (1 - 2 * (value - 0.5)) * (1 - noiseValue)) : 
+          (2 * value * (1 + noiseValue))) * 255
+      )));
     }
   }
   
@@ -963,73 +686,42 @@ const blackAndWhiteLUTs = [
   'blue_noir'
 ];
 
-// New optimized blur function
+// Optimize blur function
 function applyFastBlur(ctx, width, height, radius) {
   if (radius <= 0) return;
-
-  const imgData = ctx.getImageData(0, 0, width, height);
-  const pixels = imgData.data;
-  const tempPixels = new Uint8ClampedArray(pixels);
-
-  // Calculate image center
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
-
-  // Optimize radius for performance
-  const size = Math.max(1, Math.floor(radius * 0.5)) | 1;
-  const halfSize = Math.floor(size / 2);
-
-  // Create radial mask with smoother transition
-  const radialMask = new Float32Array(width * height);
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const dx = x - centerX;
-      const dy = y - centerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const normalizedDistance = distance / maxDistance;
-      
-      // Modified sigmoid curve for smoother transition
-      // Adjusted parameters to make the transition more subtle:
-      // - Reduced the steepness (4 instead of 6)
-      // - Adjusted the base blur (0.4 to 0.6 range instead of 0.3 to 1.0)
-      const transition = 1 / (1 + Math.exp(-(normalizedDistance * 4 - 2))) * 0.2 + 0.4;
-      radialMask[y * width + x] = transition * radius;
-    }
-  }
-
-  // Apply blur with modified radial mask
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const maskValue = radialMask[y * width + x];
-      const localSize = Math.max(1, Math.floor(maskValue * 0.5)) | 1;
-      const localHalfSize = Math.floor(localSize / 2);
-
-      let r = 0, g = 0, b = 0;
-      let count = 0;
-
-      // Apply local blur
-      for (let dy = -localHalfSize; dy <= localHalfSize; dy++) {
-        const ny = Math.min(Math.max(y + dy, 0), height - 1);
-        for (let dx = -localHalfSize; dx <= localHalfSize; dx++) {
+  
+  const iterations = Math.min(3, Math.ceil(radius / 2));
+  const iterationRadius = radius / iterations;
+  
+  for (let i = 0; i < iterations; i++) {
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const pixels = imgData.data;
+    const tempPixels = new Uint8ClampedArray(pixels);
+    
+    // Horizontal pass
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let r = 0, g = 0, b = 0, count = 0;
+        const range = Math.ceil(iterationRadius);
+        
+        for (let dx = -range; dx <= range; dx++) {
           const nx = Math.min(Math.max(x + dx, 0), width - 1);
-          const i = (ny * width + nx) * 4;
+          const i = (y * width + nx) * 4;
           r += tempPixels[i];
           g += tempPixels[i + 1];
           b += tempPixels[i + 2];
           count++;
         }
+        
+        const i = (y * width + x) * 4;
+        pixels[i] = r / count;
+        pixels[i + 1] = g / count;
+        pixels[i + 2] = b / count;
       }
-
-      const i = (y * width + x) * 4;
-      pixels[i] = r / count;
-      pixels[i + 1] = g / count;
-      pixels[i + 2] = b / count;
-      pixels[i + 3] = tempPixels[i + 3]; // Preserve original alpha
     }
+    
+    ctx.putImageData(imgData, 0, 0);
   }
-
-  ctx.putImageData(imgData, 0, 0);
 }
 
 function applyLUTToImage(pixels, lut) {
@@ -1096,4 +788,25 @@ function applyLUTToImage(pixels, lut) {
   }
   
   console.log("LUT application completed");
+}
+
+// Add touch event handling for mobile
+if (isMobile) {
+  const sliders = document.querySelectorAll('input[type="range"]');
+  sliders.forEach(slider => {
+    slider.addEventListener('touchstart', e => {
+      e.preventDefault();
+      slider.focus();
+    }, { passive: false });
+    
+    slider.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = slider.getBoundingClientRect();
+      const value = ((touch.clientX - rect.left) / rect.width) * 
+                    (slider.max - slider.min) + Number(slider.min);
+      slider.value = Math.min(Math.max(value, slider.min), slider.max);
+      slider.dispatchEvent(new Event('input'));
+    }, { passive: false });
+  });
 }
