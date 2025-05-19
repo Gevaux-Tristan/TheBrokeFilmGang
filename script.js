@@ -471,7 +471,7 @@ function applyEffects(immediate = false) {
   const data = imgData.data;
   const originalData = new Uint8ClampedArray(data);
 
-  // Optimize LUT processing for mobile
+  // Apply LUT if available
   if (lutData) {
     console.log('Applying LUT with intensity:', lutIntensity);
     const lutProcessedData = new Uint8ClampedArray(data);
@@ -503,9 +503,53 @@ function applyEffects(immediate = false) {
     console.warn('No LUT data available');
   }
 
-  ctx.putImageData(imgData, 0, 0);
-  console.log('Updated canvas with processed image');
+  // Apply exposure and contrast
+  if (exposureAmount !== 0 || contrastAmount !== 0) {
+    console.log('Applying exposure and contrast:', { exposure: exposureAmount, contrast: contrastAmount });
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i] / 255;
+      let g = data[i + 1] / 255;
+      let b = data[i + 2] / 255;
 
+      if (exposureAmount !== 0) {
+        const exposureFactor = Math.pow(2, exposureAmount);
+        r = Math.min(1, Math.max(0, r * exposureFactor));
+        g = Math.min(1, Math.max(0, g * exposureFactor));
+        b = Math.min(1, Math.max(0, b * exposureFactor));
+      }
+
+      if (contrastAmount !== 0) {
+        const contrastFactor = contrastAmount / 100;
+        r = applyContrast(r, contrastFactor);
+        g = applyContrast(g, contrastFactor);
+        b = applyContrast(b, contrastFactor);
+      }
+
+      data[i] = Math.round(r * 255);
+      data[i + 1] = Math.round(g * 255);
+      data[i + 2] = Math.round(b * 255);
+    }
+    console.log('Exposure and contrast applied');
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+
+  // Apply blur if needed
+  if (blurAmount > 0) {
+    console.log('Applying blur:', blurAmount);
+    const maxBlur = 20;
+    const blurRadius = (blurAmount / 100) * maxBlur;
+    applyFastBlur(ctx, newWidth, newHeight, blurRadius);
+  }
+
+  // Apply grain
+  const grainAmount = isoValues[selectedISO];
+  if (grainAmount > 0) {
+    console.log('Applying grain with ISO:', selectedISO, 'amount:', grainAmount);
+    addGrain(ctx, newWidth, newHeight, grainAmount);
+  }
+
+  console.log('All effects applied');
   processingEffect = false;
 
   if (pendingEffect) {
@@ -963,10 +1007,12 @@ if (resetBtn) {
 // ISO grain logic
 const isoValues = {
   0: 0,      // No grain
-  1: 0.015,  // Very light grain
-  2: 0.025,  // Light grain
-  3: 0.035,  // Medium grain
-  4: 0.045   // Strong grain
+  100: 0.015,  // Very light grain
+  200: 0.025,  // Light grain
+  400: 0.035,  // Medium grain
+  800: 0.045,  // Medium-strong grain
+  1600: 0.06,  // Strong grain
+  3200: 0.08   // Very strong grain
 };
 
 // Liste des LUTs noir et blanc
