@@ -238,6 +238,7 @@ document.getElementById("filmSelect").addEventListener("change", async () => {
   
   // Utiliser le LUT du cache s'il existe
   const lutUrl = "luts/" + selectedFilm + ".cube";
+  console.log("Checking LUT cache for:", lutUrl);
   lutData = lutCache.get(lutUrl);
   
   if (!lutData) {
@@ -253,14 +254,19 @@ document.getElementById("filmSelect").addEventListener("change", async () => {
       return;
     }
   } else {
-    console.log("Using cached LUT data");
+    console.log("Using cached LUT data:", {
+      size: lutData.size,
+      valuesLength: lutData.values.length,
+      sampleValues: lutData.values.slice(0, 3)
+    });
   }
   
   if (lutData) {
     console.log("LUT ready to apply:", {
       size: lutData.size,
       valuesLength: lutData.values.length,
-      isBlackAndWhite: lutData.isBlackAndWhite
+      isBlackAndWhite: lutData.isBlackAndWhite,
+      sampleValues: lutData.values.slice(0, 3)
     });
     if (fullResImage) {
       requestAnimationFrame(() => applyEffects(true));
@@ -800,6 +806,11 @@ function trilinearLUTLookup(lut, r, g, b) {
   const gF = g * maxIndex;
   const bF = b * maxIndex;
 
+  // Log sample input values
+  if (r === 0 && g === 0 && b === 0) {
+    console.log("LUT lookup for black:", { rF, gF, bF });
+  }
+
   // Indices entiers et fractions
   const r0 = Math.floor(rF), r1 = Math.min(r0 + 1, maxIndex);
   const g0 = Math.floor(gF), g1 = Math.min(g0 + 1, maxIndex);
@@ -825,6 +836,14 @@ function trilinearLUTLookup(lut, r, g, b) {
     const v011 = idx(r0, g1, b1);
     const v111 = idx(r1, g1, b1);
 
+    // Log sample interpolation values for black
+    if (r === 0 && g === 0 && b === 0) {
+      console.log("LUT interpolation values for black:", {
+        v000, v100, v010, v110,
+        v001, v101, v011, v111
+      });
+    }
+
     // Interpolation trilineaire
     const lerp = (a, b, t) => a * (1 - t) + b * t;
     let out = [0, 0, 0];
@@ -837,6 +856,12 @@ function trilinearLUTLookup(lut, r, g, b) {
       const c1 = lerp(c01, c11, dg);
       out[c] = lerp(c0, c1, db);
     }
+
+    // Log sample output for black
+    if (r === 0 && g === 0 && b === 0) {
+      console.log("LUT output for black:", out);
+    }
+
     return out;
   } catch (error) {
     console.error("Error in trilinear LUT lookup:", error);
@@ -1036,7 +1061,11 @@ function applyLUTToImage(pixels, lut) {
     return;
   }
 
-  console.log("Application du LUT - taille:", lut.size, "nombre de valeurs:", lut.values.length);
+  console.log("Starting LUT application - size:", lut.size, "values length:", lut.values.length);
+  console.log("Sample LUT values:", lut.values.slice(0, 3));
+  
+  let invalidValueCount = 0;
+  let outOfRangeCount = 0;
   
   for (let i = 0; i < pixels.length; i += 4) {
     const r = pixels[i] / 255;
@@ -1044,17 +1073,50 @@ function applyLUTToImage(pixels, lut) {
     const b = pixels[i + 2] / 255;
 
     try {
+      // Log a sample of input values
+      if (i === 0) {
+        console.log("Sample input RGB:", [r, g, b]);
+      }
+
       // Appliquer le LUT
       const newColor = trilinearLUTLookup(lut, r, g, b);
+
+      // Log a sample of output values
+      if (i === 0) {
+        console.log("Sample output RGB:", newColor);
+      }
+
+      // Check for invalid values
+      if (newColor.some(v => isNaN(v) || !isFinite(v))) {
+        invalidValueCount++;
+        continue;
+      }
+
+      // Check for out of range values
+      if (newColor.some(v => v < 0 || v > 1)) {
+        outOfRangeCount++;
+        newColor[0] = Math.min(1, Math.max(0, newColor[0]));
+        newColor[1] = Math.min(1, Math.max(0, newColor[1]));
+        newColor[2] = Math.min(1, Math.max(0, newColor[2]));
+      }
 
       // Mettre à jour les pixels
       pixels[i] = newColor[0] * 255;
       pixels[i + 1] = newColor[1] * 255;
       pixels[i + 2] = newColor[2] * 255;
     } catch (error) {
-      console.error("Erreur lors de l'application du LUT aux pixels:", error);
+      console.error("Error applying LUT to pixel", i, ":", error);
       return;
     }
   }
-  console.log("LUT appliqué avec succès");
+  
+  if (invalidValueCount > 0 || outOfRangeCount > 0) {
+    console.warn("LUT application stats:", {
+      invalidValues: invalidValueCount,
+      outOfRangeValues: outOfRangeCount,
+      totalPixels: pixels.length / 4
+    });
+  }
+  
+  console.log("LUT application completed");
 }
