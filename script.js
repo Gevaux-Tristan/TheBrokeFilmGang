@@ -208,19 +208,19 @@ function processImageEffects(ctx, width, height, isExport = false) {
     }
   }
 
-  // Apply grain if enabled
-  if (selectedISO > 0) {
-    const grainIntensity = (selectedISO / 100) * 0.25;
-    addGrain(ctx, width, height, grainIntensity);
-  }
+  ctx.putImageData(imgData, 0, 0);
 
   // Apply blur if enabled
   if (blurAmount > 0) {
-    const radius = Math.max(1, Math.min(5, blurAmount * 0.05));
-    boxBlur(data, width, height, radius);
+    const blurRadius = Math.max(1, Math.min(20, blurAmount * 0.2));
+    applyFastBlur(ctx, width, height, blurRadius);
   }
 
-  ctx.putImageData(imgData, 0, 0);
+  // Apply grain if enabled
+  if (selectedISO > 0) {
+    const grainAmount = selectedISO;
+    addGrain(ctx, width, height, grainAmount);
+  }
 }
 
 function applyEffects(immediate = false) {
