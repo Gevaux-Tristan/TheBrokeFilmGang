@@ -735,8 +735,22 @@ function createThrottledHandler(callback) {
 
 // Appliquer les gestionnaires optimisés aux curseurs
 isoSlider.addEventListener('input', createThrottledHandler(() => {
-  selectedISO = parseInt(isoSlider.value);
-  if (isoValueSpan) isoValueSpan.textContent = selectedISO;
+  const value = parseInt(isoSlider.value);
+  // Round to nearest valid ISO value
+  const validISOs = Object.keys(isoValues).map(Number);
+  selectedISO = validISOs.reduce((prev, curr) => {
+    return Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev;
+  });
+  
+  // Update the slider value to match the selected ISO
+  isoSlider.value = selectedISO;
+  
+  // Update the display
+  if (isoValueSpan) {
+    isoValueSpan.textContent = selectedISO === 0 ? 'Off' : selectedISO;
+  }
+  
+  console.log('ISO changed:', selectedISO, 'grain amount:', isoValues[selectedISO]);
   if (fullResImage) applyEffects(true);
 }));
 
@@ -788,7 +802,7 @@ function addGrain(ctx, width, height, amount) {
     
     for (let y = 0; y < height; y += frequency) {
       for (let x = 0; x < width; x += frequency) {
-        const noise = (Math.random() * 2 - 1) * amount;
+        const noise = (Math.random() * 2 - 1) * amount * 2; // Doubled the effect
         
         // Apply noise to surrounding pixels with smooth falloff
         for (let dy = 0; dy < frequency && y + dy < height; dy++) {
@@ -817,8 +831,8 @@ function addGrain(ctx, width, height, amount) {
       const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
       
       // Adjust grain strength based on luminance
-      // More visible in midtones, less in shadows and highlights
-      const luminanceMultiplier = 1 - Math.pow((luminance - 0.5) * 2, 2);
+      // More visible in shadows and midtones, less in highlights
+      const luminanceMultiplier = 1.5 - luminance; // Changed from quadratic to linear falloff
       
       // Get noise values for each channel
       const idx = y * width + x;
@@ -827,9 +841,9 @@ function addGrain(ctx, width, height, amount) {
       const noiseB = noiseBufferB[idx] * luminanceMultiplier;
       
       // Apply noise with subtle color cross-talk
-      data[i] = Math.min(255, Math.max(0, data[i] + noiseR * 255 * 0.9 + (noiseG + noiseB) * 255 * 0.05));
-      data[i+1] = Math.min(255, Math.max(0, data[i+1] + noiseG * 255 * 0.9 + (noiseR + noiseB) * 255 * 0.05));
-      data[i+2] = Math.min(255, Math.max(0, data[i+2] + noiseB * 255 * 0.9 + (noiseR + noiseG) * 255 * 0.05));
+      data[i] = Math.min(255, Math.max(0, data[i] + noiseR * 255));
+      data[i+1] = Math.min(255, Math.max(0, data[i+1] + noiseG * 255));
+      data[i+2] = Math.min(255, Math.max(0, data[i+2] + noiseB * 255));
     }
   }
   
@@ -1006,13 +1020,13 @@ if (resetBtn) {
 
 // ISO grain logic
 const isoValues = {
-  0: 0,      // No grain
-  100: 0.015,  // Very light grain
-  200: 0.025,  // Light grain
-  400: 0.035,  // Medium grain
-  800: 0.045,  // Medium-strong grain
-  1600: 0.06,  // Strong grain
-  3200: 0.08   // Very strong grain
+  0: 0,        // No grain
+  100: 0.02,   // Very light grain
+  200: 0.035,  // Light grain
+  400: 0.05,   // Medium grain
+  800: 0.075,  // Medium-strong grain
+  1600: 0.1,   // Strong grain
+  3200: 0.15   // Very strong grain
 };
 
 // Liste des LUTs noir et blanc
