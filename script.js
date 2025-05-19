@@ -467,7 +467,10 @@ if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 function addGrain(ctx, width, height, amount) {
   if (amount <= 0) return;
   
-  const grainIntensity = (amount / 100) * 0.5; // Increased intensity multiplier
+  // Cap the maximum grain effect to what was previously seen at 30%
+  const maxGrainAmount = 30;
+  const cappedAmount = Math.min(amount, maxGrainAmount);
+  const grainIntensity = (cappedAmount / 100) * 0.15; // Reduced multiplier to match previous 30% effect
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
@@ -480,7 +483,7 @@ function addGrain(ctx, width, height, amount) {
   // Apply noise with luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
-    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.3); // Reduced luminance influence
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.3);
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
@@ -634,7 +637,7 @@ if (resetBtn) {
   resetBtn.addEventListener('click', () => {
     // Réinitialiser les curseurs
     isoSlider.value = 0;
-    selectedISO = 100;
+    selectedISO = 0;
     if (isoValueSpan) isoValueSpan.textContent = selectedISO;
 
     contrastSlider.value = 0;
@@ -665,11 +668,10 @@ if (resetBtn) {
       img.onload = function () {
         fullResImage = img;
         leakImage = null;
-        applyEffects(true); // Force une mise à jour immédiate
+        applyEffects(true);
       };
       img.src = originalImageDataUrl;
     } else {
-      // Si pas d'image, réafficher le dropZone
       showDropZone();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       fullResImage = null;
