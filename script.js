@@ -206,15 +206,14 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply blur if enabled - optimized for mobile
+  // Apply radial blur if enabled
   if (blurAmount > 0) {
-    const blurRadius = Math.max(1, Math.min(isMobile ? 10 : 20, blurAmount * 0.2));
-    applyFastBlur(ctx, width, height, blurRadius);
+    applyRadialBlur(ctx, width, height, blurAmount);
   }
 
-  // Apply grain if enabled - optimized for mobile
+  // Apply grain if enabled
   if (selectedISO > 0) {
-    const grainAmount = isMobile ? selectedISO * 0.8 : selectedISO; // Slightly reduce grain on mobile
+    const grainAmount = isMobile ? selectedISO * 0.8 : selectedISO;
     addGrain(ctx, width, height, grainAmount);
   }
 }
@@ -882,4 +881,60 @@ function boxBlur(data, width, height, radius) {
       data[idx + 3] = tempData[idx + 3]; // Keep original alpha
     }
   }
+}
+
+function applyRadialBlur(ctx, width, height, amount) {
+  if (amount <= 0) return;
+  
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+  const blurStrength = amount * 0.02; // Subtle blur multiplier
+  
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Calculate distance from center
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const normalizedDistance = distance / maxDistance;
+      
+      // Calculate blur radius based on distance from center
+      const blurRadius = Math.max(1, Math.min(5, normalizedDistance * blurStrength * 10));
+      
+      // Sample points in a circle around the current pixel
+      let r = 0, g = 0, b = 0, count = 0;
+      const samples = Math.min(8, Math.ceil(blurRadius * 2));
+      
+      for (let i = 0; i < samples; i++) {
+        const angle = (i / samples) * Math.PI * 2;
+        const sampleX = Math.round(x + Math.cos(angle) * blurRadius);
+        const sampleY = Math.round(y + Math.sin(angle) * blurRadius);
+        
+        if (sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
+          const idx = (sampleY * width + sampleX) * 4;
+          r += tempPixels[idx];
+          g += tempPixels[idx + 1];
+          b += tempPixels[idx + 2];
+          count++;
+        }
+      }
+      
+      if (count > 0) {
+        const idx = (y * width + x) * 4;
+        // Blend original pixel with blurred samples
+        const blendFactor = 0.7; // Keep some of the original sharpness
+        pixels[idx] = tempPixels[idx] * blendFactor + (r / count) * (1 - blendFactor);
+        pixels[idx + 1] = tempPixels[idx + 1] * blendFactor + (g / count) * (1 - blendFactor);
+        pixels[idx + 2] = tempPixels[idx + 2] * blendFactor + (b / count) * (1 - blendFactor);
+        pixels[idx + 3] = tempPixels[idx + 3];
+      }
+    }
+  }
+  
+  ctx.putImageData(imgData, 0, 0);
 }
