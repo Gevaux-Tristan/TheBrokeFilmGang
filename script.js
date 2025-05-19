@@ -70,11 +70,14 @@ function handleFiles(files) {
   if (files.length > 0) {
     const file = files[0];
     if (file.type.startsWith('image/')) {
+      console.log('Starting to load image:', file.name);
       const reader = new FileReader();
       reader.onload = (e) => {
+        console.log('FileReader loaded image data');
         originalImageDataUrl = e.target.result; // Sauvegarde l'image d'origine
         const img = new Image();
         img.onload = () => {
+          console.log('Image loaded successfully:', img.width, 'x', img.height);
           fullResImage = img;
           leakImage = null; // Remove any previous light leak
           // Appliquer automatiquement Portra 160
@@ -82,7 +85,13 @@ function handleFiles(files) {
           document.getElementById('filmSelect').dispatchEvent(new Event('change'));
           applyEffects();
         };
+        img.onerror = (error) => {
+          console.error('Error loading image:', error);
+        };
         img.src = e.target.result;
+      };
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
       };
       reader.readAsDataURL(file);
     }
@@ -117,58 +126,53 @@ const EXPORT_MAX_HEIGHT = 1350;
 
 // Optimiser le chargement des LUTs
 async function loadLUT(url) {
-  console.log("Tentative de chargement du LUT:", url);
-  
-  if (lutCache.has(url)) {
-    console.log("LUT trouvé dans le cache");
-    return lutCache.get(url);
-  }
+  console.log("Loading LUT:", url);
 
   try {
-    console.log("Chargement du LUT depuis le serveur");
+    console.log("Fetching LUT from server");
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status}`);
+      throw new Error(`HTTP error: ${response.status}`);
     }
     const text = await response.text();
     
-    // Trouver la taille du LUT
+    // Find LUT size
     const sizeMatch = text.match(/LUT_3D_SIZE (\d+)/);
     const size = sizeMatch ? parseInt(sizeMatch[1]) : 33;
-    console.log("Taille du LUT:", size);
+    console.log("LUT size:", size);
     
-    // Filtrer et normaliser les lignes de données
+    // Filter and normalize data lines
     const lines = text.split('\n')
       .filter(l => !l.startsWith('#') && !l.startsWith('TITLE') && !l.startsWith('LUT_3D_SIZE') && !l.startsWith('DOMAIN'))
       .map(line => line.trim())
       .filter(line => line.length > 0 && line.split(/\s+/).length >= 3);
     
-    console.log("Nombre de lignes de données:", lines.length);
+    console.log("Number of data lines:", lines.length);
     
-    // Convertir les lignes en valeurs RGB avec validation supplémentaire
+    // Convert lines to RGB values with additional validation
     const values = lines.map(line => {
       const [r, g, b] = line.split(/\s+/).map(v => {
         const val = parseFloat(v);
-        // S'assurer que les valeurs sont dans la plage [0,1]
+        // Ensure values are in range [0,1]
         return isNaN(val) ? 0 : Math.min(1, Math.max(0, val));
       });
       return [r, g, b];
     });
 
-    // Vérifier si le LUT est en noir et blanc
+    // Check if LUT is black and white
     const lutName = url.split('/').pop().replace('.cube', '');
     const isBlackAndWhite = blackAndWhiteLUTs.includes(lutName);
     
     if (!values.length) {
-      console.error("LUT invalide - pas de données:", url);
+      console.error("Invalid LUT - no data:", url);
       return null;
     }
 
-    // Vérifier si nous avons le bon nombre de valeurs pour la taille du LUT
+    // Check if we have the correct number of values for the LUT size
     const expectedValues = size * size * size;
     if (values.length !== expectedValues) {
-      console.warn(`Attention: Nombre de valeurs incorrect. Attendu: ${expectedValues}, Reçu: ${values.length}`);
-      // Compléter ou tronquer si nécessaire
+      console.warn(`Warning: Incorrect number of values. Expected: ${expectedValues}, Got: ${values.length}`);
+      // Complete or truncate if necessary
       while (values.length < expectedValues) {
         values.push([0, 0, 0]);
       }
@@ -176,15 +180,27 @@ async function loadLUT(url) {
         values.length = expectedValues;
       }
     }
-    
-    const lutData = { size, values, isBlackAndWhite };
-    console.log("LUT chargé avec succès:", lutName);
-    
+
+    // Validate final LUT data
+    const lutData = {
+      size,
+      values,
+      isBlackAndWhite
+    };
+
+    // Basic validation of LUT data
+    if (!lutData.size || !lutData.values || !Array.isArray(lutData.values)) {
+      console.error("Invalid LUT data structure:", lutData);
+      return null;
+    }
+
+    // Cache the LUT
     lutCache.set(url, lutData);
+    console.log("LUT loaded and cached successfully");
     
     return lutData;
   } catch (error) {
-    console.error("Erreur détaillée lors du chargement du LUT:", error);
+    console.error("Error loading LUT:", error);
     return null;
   }
 }
@@ -217,7 +233,7 @@ document.addEventListener('DOMContentLoaded', preloadLUTs);
 // Modifier l'événement de changement de LUT
 document.getElementById("filmSelect").addEventListener("change", async () => {
   const selectedFilm = document.getElementById("filmSelect").value;
-  console.log("Changement de LUT:", selectedFilm);
+  console.log("Changing LUT to:", selectedFilm);
   currentLutName = selectedFilm;
   
   // Utiliser le LUT du cache s'il existe
@@ -225,17 +241,32 @@ document.getElementById("filmSelect").addEventListener("change", async () => {
   lutData = lutCache.get(lutUrl);
   
   if (!lutData) {
-    console.log("LUT non trouvé dans le cache, chargement...");
-    lutData = await loadLUT(lutUrl);
+    console.log("LUT not found in cache, loading from file:", lutUrl);
+    try {
+      lutData = await loadLUT(lutUrl);
+      if (!lutData) {
+        console.error("Failed to load LUT:", lutUrl);
+        return;
+      }
+    } catch (error) {
+      console.error("Error loading LUT:", error);
+      return;
+    }
+  } else {
+    console.log("Using cached LUT data");
   }
   
   if (lutData) {
-    console.log("LUT prêt à être appliqué");
+    console.log("LUT ready to apply:", {
+      size: lutData.size,
+      valuesLength: lutData.values.length,
+      isBlackAndWhite: lutData.isBlackAndWhite
+    });
     if (fullResImage) {
       requestAnimationFrame(() => applyEffects(true));
     }
   } else {
-    console.error("Impossible de charger le LUT:", selectedFilm);
+    console.error("Unable to load LUT:", selectedFilm);
   }
 });
 
@@ -387,14 +418,21 @@ function processImageEffects(ctx, width, height, isExport = false) {
 }
 
 function applyEffects(immediate = false) {
-  if (!fullResImage) return;
+  if (!fullResImage) {
+    console.log('No image loaded, skipping effects');
+    return;
+  }
+
+  console.log('Starting to apply effects');
 
   if (processingEffect && !immediate) {
+    console.log('Already processing effects, queueing update');
     pendingEffect = true;
     return;
   }
 
   processingEffect = true;
+  console.log('Processing effects with LUT:', currentLutName);
 
   const maxWidth = isMobile ? MOBILE_MAX_WIDTH : DESKTOP_MAX_WIDTH;
   const maxHeight = isMobile ? MOBILE_MAX_HEIGHT : DESKTOP_MAX_HEIGHT;
@@ -415,10 +453,13 @@ function applyEffects(immediate = false) {
   newWidth = Math.floor(newWidth);
   newHeight = Math.floor(newHeight);
   
+  console.log('Canvas dimensions:', newWidth, 'x', newHeight);
+  
   canvas.width = newWidth;
   canvas.height = newHeight;
   
   ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
+  console.log('Drew image to canvas');
   
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imgData.data;
@@ -426,6 +467,7 @@ function applyEffects(immediate = false) {
 
   // Optimize LUT processing for mobile
   if (lutData) {
+    console.log('Applying LUT with intensity:', lutIntensity);
     const lutProcessedData = new Uint8ClampedArray(data);
     try {
       applyLUTToImage(lutProcessedData, lutData);
@@ -446,72 +488,22 @@ function applyEffects(immediate = false) {
           }
         }
       }
+      console.log('LUT applied successfully');
     } catch (error) {
-      console.error("Error applying LUT:", error);
+      console.error('Error applying LUT:', error);
       data.set(originalData);
     }
-  }
-
-  // Optimize exposure and contrast for mobile
-  if (exposureAmount !== 0 || contrastAmount !== 0) {
-    const exposureFactor = exposureAmount !== 0 ? Math.pow(2, exposureAmount) : 1;
-    const contrastFactor = contrastAmount / 100;
-    
-    for (let i = 0; i < data.length; i += 4) {
-      let r = data[i] / 255;
-      let g = data[i + 1] / 255;
-      let b = data[i + 2] / 255;
-
-      if (exposureAmount !== 0) {
-        r = r * exposureFactor;
-        g = g * exposureFactor;
-        b = b * exposureFactor;
-        
-        // Fast clamp
-        r = r < 0 ? 0 : r > 1 ? 1 : r;
-        g = g < 0 ? 0 : g > 1 ? 1 : g;
-        b = b < 0 ? 0 : b > 1 ? 1 : b;
-      }
-
-      if (contrastAmount !== 0) {
-        if (contrastFactor < 0) {
-          const fadeAmount = Math.abs(contrastFactor);
-          r = r * (1 - fadeAmount) + 0.5 * fadeAmount;
-          g = g * (1 - fadeAmount) + 0.5 * fadeAmount;
-          b = b * (1 - fadeAmount) + 0.5 * fadeAmount;
-        } else {
-          r = applyContrast(r, contrastFactor);
-          g = applyContrast(g, contrastFactor);
-          b = applyContrast(b, contrastFactor);
-        }
-      }
-
-      data[i] = r * 255;
-      data[i + 1] = g * 255;
-      data[i + 2] = b * 255;
-    }
+  } else {
+    console.warn('No LUT data available');
   }
 
   ctx.putImageData(imgData, 0, 0);
-
-  // Optimize blur for mobile
-  if (blurAmount > 0) {
-    const maxBlur = isMobile ? 10 : 20; // Reduced blur radius on mobile
-    const blurRadius = (blurAmount / 100) * maxBlur;
-    applyFastBlur(ctx, canvas.width, canvas.height, blurRadius);
-  }
-
-  // Optimize grain for mobile
-  if (isMobile) {
-    const reducedGrain = isoValues[selectedISO] * 0.7; // Reduce grain intensity on mobile
-    addGrain(ctx, canvas.width, canvas.height, reducedGrain);
-  } else {
-    addGrain(ctx, canvas.width, canvas.height, isoValues[selectedISO]);
-  }
+  console.log('Updated canvas with processed image');
 
   processingEffect = false;
 
   if (pendingEffect) {
+    console.log('Processing pending effect');
     pendingEffect = false;
     requestAnimationFrame(() => applyEffects(true));
   }
@@ -795,6 +787,11 @@ function addGrain(ctx, width, height, amount) {
 }
 
 function trilinearLUTLookup(lut, r, g, b) {
+  if (!lut || !lut.size || !lut.values) {
+    console.error("Invalid LUT data:", lut);
+    return [r, g, b]; // Return original color if LUT is invalid
+  }
+
   const size = lut.size;
   const maxIndex = size - 1;
 
@@ -809,30 +806,42 @@ function trilinearLUTLookup(lut, r, g, b) {
   const b0 = Math.floor(bF), b1 = Math.min(b0 + 1, maxIndex);
   const dr = rF - r0, dg = gF - g0, db = bF - b0;
 
-  // Fonction d'accès
-  const idx = (ri, gi, bi) => ri + gi * size + bi * size * size;
-  const v000 = lut.values[idx(r0, g0, b0)];
-  const v100 = lut.values[idx(r1, g0, b0)];
-  const v010 = lut.values[idx(r0, g1, b0)];
-  const v110 = lut.values[idx(r1, g1, b0)];
-  const v001 = lut.values[idx(r0, g0, b1)];
-  const v101 = lut.values[idx(r1, g0, b1)];
-  const v011 = lut.values[idx(r0, g1, b1)];
-  const v111 = lut.values[idx(r1, g1, b1)];
+  try {
+    // Fonction d'accès
+    const idx = (ri, gi, bi) => {
+      const index = ri + gi * size + bi * size * size;
+      if (index >= lut.values.length) {
+        throw new Error(`LUT index out of bounds: ${index} >= ${lut.values.length}`);
+      }
+      return lut.values[index];
+    };
 
-  // Interpolation trilineaire
-  const lerp = (a, b, t) => a * (1 - t) + b * t;
-  let out = [0, 0, 0];
-  for (let c = 0; c < 3; c++) {
-    const c00 = lerp(v000[c], v100[c], dr);
-    const c01 = lerp(v001[c], v101[c], dr);
-    const c10 = lerp(v010[c], v110[c], dr);
-    const c11 = lerp(v011[c], v111[c], dr);
-    const c0 = lerp(c00, c10, dg);
-    const c1 = lerp(c01, c11, dg);
-    out[c] = lerp(c0, c1, db);
+    const v000 = idx(r0, g0, b0);
+    const v100 = idx(r1, g0, b0);
+    const v010 = idx(r0, g1, b0);
+    const v110 = idx(r1, g1, b0);
+    const v001 = idx(r0, g0, b1);
+    const v101 = idx(r1, g0, b1);
+    const v011 = idx(r0, g1, b1);
+    const v111 = idx(r1, g1, b1);
+
+    // Interpolation trilineaire
+    const lerp = (a, b, t) => a * (1 - t) + b * t;
+    let out = [0, 0, 0];
+    for (let c = 0; c < 3; c++) {
+      const c00 = lerp(v000[c], v100[c], dr);
+      const c01 = lerp(v001[c], v101[c], dr);
+      const c10 = lerp(v010[c], v110[c], dr);
+      const c11 = lerp(v011[c], v111[c], dr);
+      const c0 = lerp(c00, c10, dg);
+      const c1 = lerp(c01, c11, dg);
+      out[c] = lerp(c0, c1, db);
+    }
+    return out;
+  } catch (error) {
+    console.error("Error in trilinear LUT lookup:", error);
+    return [r, g, b]; // Return original color on error
   }
-  return out;
 }
 
 // Nouvelle fonction de flou simplifiée
