@@ -472,7 +472,7 @@ if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 function addGrain(ctx, width, height, amount) {
   if (amount <= 0) return;
   
-  const grainIntensity = (amount / 100) * 0.25;
+  const grainIntensity = (amount / 100) * 0.5; // Increased intensity multiplier
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
@@ -485,23 +485,17 @@ function addGrain(ctx, width, height, amount) {
   // Apply noise with luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
-    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.5);
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.3); // Reduced luminance influence
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
-      // Use soft-light blending for more natural grain
-      const grainValue = (noiseValue + 1) / 2;
+      // Use overlay blending for more natural grain
       let result;
-      
-      if (grainValue <= 0.5) {
-        result = value - (1 - 2 * grainValue) * value * (1 - value);
+      if (value < 0.5) {
+        result = 2 * value * (0.5 + noiseValue);
       } else {
-        const d = value <= 0.25 ? 
-          ((16 * value - 12) * value + 4) * value :
-          Math.sqrt(value);
-        result = value + (2 * grainValue - 1) * (d - value);
+        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue));
       }
-      
       data[i + j] = Math.round(Math.max(0, Math.min(1, result)) * 255);
     }
   }
@@ -710,7 +704,7 @@ function applyFastBlur(ctx, width, height, radius) {
   if (radius <= 0) return;
   
   const iterations = Math.min(3, Math.ceil(radius / 2));
-  const iterationRadius = radius / iterations;
+  const iterationRadius = Math.max(1, Math.ceil(radius / iterations));
   
   for (let i = 0; i < iterations; i++) {
     const imgData = ctx.getImageData(0, 0, width, height);
@@ -721,7 +715,7 @@ function applyFastBlur(ctx, width, height, radius) {
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         let r = 0, g = 0, b = 0, count = 0;
-        const range = Math.ceil(iterationRadius);
+        const range = iterationRadius;
         
         for (let dx = -range; dx <= range; dx++) {
           const nx = Math.min(Math.max(x + dx, 0), width - 1);
@@ -745,7 +739,7 @@ function applyFastBlur(ctx, width, height, radius) {
     for (let x = 0; x < width; x++) {
       for (let y = 0; y < height; y++) {
         let r = 0, g = 0, b = 0, count = 0;
-        const range = Math.ceil(iterationRadius);
+        const range = iterationRadius;
         
         for (let dy = -range; dy <= range; dy++) {
           const ny = Math.min(Math.max(y + dy, 0), height - 1);
