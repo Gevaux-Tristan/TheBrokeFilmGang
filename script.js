@@ -162,16 +162,17 @@ function processImageEffects(ctx, width, height, isExport = false) {
   // Apply LUT first if present and intensity > 0
   if (lutData && lutIntensity > 0) {
     try {
-      // Process LUT in place
-      applyLUTToImage(data, lutData);
-      
-      // Blend with original based on intensity if not at 100%
-      if (lutIntensity < 1) {
-        for (let i = 0; i < data.length; i += 4) {
-          data[i] = Math.round(originalData[i] * (1 - lutIntensity) + data[i] * lutIntensity);
-          data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + data[i + 1] * lutIntensity);
-          data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + data[i + 2] * lutIntensity);
-        }
+      for (let i = 0; i < data.length; i += 4) {
+        const r = originalData[i] / 255;
+        const g = originalData[i + 1] / 255;
+        const b = originalData[i + 2] / 255;
+
+        const newColor = trilinearLUTLookup(lutData, r, g, b);
+        
+        // Apply LUT with intensity
+        data[i] = Math.round((originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity));
+        data[i + 1] = Math.round((originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity));
+        data[i + 2] = Math.round((originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity));
       }
     } catch (error) {
       console.error("Error applying LUT:", error);
@@ -208,10 +209,10 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply blur if needed - reduced intensity
+  // Apply blur if needed - further reduced intensity
   if (blurAmount > 0) {
-    const maxBlur = 10; // Reduced from 20 to 10 for less intense blur
-    const blurRadius = (blurAmount / 100) * maxBlur * 0.5; // Added 0.5 multiplier to further reduce intensity
+    const maxBlur = 5; // Reduced from 10 to 5
+    const blurRadius = (blurAmount / 100) * maxBlur * 0.3; // Reduced multiplier from 0.5 to 0.3
     applyFastBlur(ctx, width, height, blurRadius);
   }
 
@@ -537,50 +538,58 @@ function trilinearLUTLookup(lut, r, g, b) {
   const size = lut.size;
   const maxIndex = size - 1;
 
-  // Scale input values to LUT space
+  // Scale and clamp input values to LUT space
   const rF = Math.min(Math.max(r * maxIndex, 0), maxIndex);
   const gF = Math.min(Math.max(g * maxIndex, 0), maxIndex);
   const bF = Math.min(Math.max(b * maxIndex, 0), maxIndex);
 
-  // Get integer indices and fractions
-  const r0 = Math.floor(rF), r1 = Math.min(r0 + 1, maxIndex);
-  const g0 = Math.floor(gF), g1 = Math.min(g0 + 1, maxIndex);
-  const b0 = Math.floor(bF), b1 = Math.min(b0 + 1, maxIndex);
+  // Get integer indices
+  const r0 = Math.floor(rF);
+  const g0 = Math.floor(gF);
+  const b0 = Math.floor(bF);
+  const r1 = Math.min(r0 + 1, maxIndex);
+  const g1 = Math.min(g0 + 1, maxIndex);
+  const b1 = Math.min(b0 + 1, maxIndex);
+
+  // Get fractions
   const dr = rF - r0;
   const dg = gF - g0;
   const db = bF - b0;
 
-  // Helper function to get LUT value
-  const getLUTValue = (ri, gi, bi) => {
-    const index = (ri + gi * size + bi * size * size) * 3;
+  // Get values from LUT
+  const getValue = (ri, gi, bi) => {
+    const idx = (bi * size * size + gi * size + ri) * 3;
     return [
-      lut.values[index],
-      lut.values[index + 1],
-      lut.values[index + 2]
+      lut.values[idx],
+      lut.values[idx + 1],
+      lut.values[idx + 2]
     ];
   };
 
   // Get all corner values
-  const c000 = getLUTValue(r0, g0, b0);
-  const c100 = getLUTValue(r1, g0, b0);
-  const c010 = getLUTValue(r0, g1, b0);
-  const c110 = getLUTValue(r1, g1, b0);
-  const c001 = getLUTValue(r0, g0, b1);
-  const c101 = getLUTValue(r1, g0, b1);
-  const c011 = getLUTValue(r0, g1, b1);
-  const c111 = getLUTValue(r1, g1, b1);
+  const c000 = getValue(r0, g0, b0);
+  const c001 = getValue(r0, g0, b1);
+  const c010 = getValue(r0, g1, b0);
+  const c011 = getValue(r0, g1, b1);
+  const c100 = getValue(r1, g0, b0);
+  const c101 = getValue(r1, g0, b1);
+  const c110 = getValue(r1, g1, b0);
+  const c111 = getValue(r1, g1, b1);
 
   // Perform trilinear interpolation
   const result = [0, 0, 0];
   for (let i = 0; i < 3; i++) {
+    // Interpolate along R axis
     const c00 = c000[i] * (1 - dr) + c100[i] * dr;
     const c01 = c001[i] * (1 - dr) + c101[i] * dr;
     const c10 = c010[i] * (1 - dr) + c110[i] * dr;
     const c11 = c011[i] * (1 - dr) + c111[i] * dr;
 
+    // Interpolate along G axis
     const c0 = c00 * (1 - dg) + c10 * dg;
     const c1 = c01 * (1 - dg) + c11 * dg;
 
+    // Final interpolation along B axis
     result[i] = c0 * (1 - db) + c1 * db;
   }
 
