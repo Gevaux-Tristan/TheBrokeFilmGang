@@ -736,21 +736,13 @@ function createThrottledHandler(callback) {
 // Appliquer les gestionnaires optimisés aux curseurs
 isoSlider.addEventListener('input', createThrottledHandler(() => {
   const value = parseInt(isoSlider.value);
-  // Round to nearest valid ISO value
-  const validISOs = Object.keys(isoValues).map(Number);
-  selectedISO = validISOs.reduce((prev, curr) => {
-    return Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev;
-  });
+  selectedISO = value;
   
-  // Update the slider value to match the selected ISO
-  isoSlider.value = selectedISO;
-  
-  // Update the display
+  // Update the display with percentage
   if (isoValueSpan) {
-    isoValueSpan.textContent = selectedISO === 0 ? 'Off' : selectedISO;
+    isoValueSpan.textContent = value + '%';
   }
   
-  console.log('ISO changed:', selectedISO, 'grain amount:', isoValues[selectedISO]);
   if (fullResImage) applyEffects(true);
 }));
 
@@ -787,6 +779,10 @@ if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 function addGrain(ctx, width, height, amount) {
   if (amount <= 0) return;
   
+  // Convert percentage (0-100) to grain intensity (0-0.25)
+  // Increased maximum intensity from 0.12 to 0.25 for stronger grain effect
+  const grainIntensity = (amount / 100) * 0.25;
+  
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
@@ -802,7 +798,7 @@ function addGrain(ctx, width, height, amount) {
     // Generate multiple octaves of noise
     for (let octave = 0; octave < octaves; octave++) {
       const freq = Math.max(1, Math.floor(baseFreq * Math.pow(2, octave)));
-      const amp = amount * Math.pow(0.5, octave); // Increased base amplitude
+      const amp = grainIntensity * Math.pow(0.5, octave); // Use grainIntensity directly
       
       for (let y = 0; y < height; y += freq) {
         for (let x = 0; x < width; x += freq) {
@@ -1063,17 +1059,6 @@ if (resetBtn) {
     }
   });
 }
-
-// ISO grain logic
-const isoValues = {
-  0: 0,         // No grain
-  100: 0.02,    // Very light grain
-  200: 0.035,   // Light grain
-  400: 0.05,    // Medium grain
-  800: 0.07,    // Medium-strong grain
-  1600: 0.09,   // Strong grain
-  3200: 0.12    // Very strong grain
-};
 
 // Liste des LUTs noir et blanc
 const blackAndWhiteLUTs = [
