@@ -170,12 +170,13 @@ function processImageEffects(ctx, width, height, isExport = false) {
         const newColor = trilinearLUTLookup(lutData, r, g, b);
         
         // Apply LUT with intensity
-        data[i] = Math.round((originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity));
-        data[i + 1] = Math.round((originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity));
-        data[i + 2] = Math.round((originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity));
+        data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
+        data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
+        data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
       }
     } catch (error) {
       console.error("Error applying LUT:", error);
+      // Keep original values on error
       data.set(originalData);
     }
   }
@@ -207,19 +208,19 @@ function processImageEffects(ctx, width, height, isExport = false) {
     }
   }
 
-  ctx.putImageData(imgData, 0, 0);
-
-  // Apply blur if needed - further reduced intensity
-  if (blurAmount > 0) {
-    const maxBlur = 5; // Reduced from 10 to 5
-    const blurRadius = (blurAmount / 100) * maxBlur * 0.3; // Reduced multiplier from 0.5 to 0.3
-    applyFastBlur(ctx, width, height, blurRadius);
-  }
-
-  // Apply grain if needed
+  // Apply grain if enabled
   if (selectedISO > 0) {
-    addGrain(ctx, width, height, selectedISO);
+    const grainIntensity = (selectedISO / 100) * 0.25;
+    addGrain(ctx, width, height, grainIntensity);
   }
+
+  // Apply blur if enabled
+  if (blurAmount > 0) {
+    const radius = Math.max(1, Math.min(5, blurAmount * 0.05));
+    boxBlur(data, width, height, radius);
+  }
+
+  ctx.putImageData(imgData, 0, 0);
 }
 
 function applyEffects(immediate = false) {
@@ -786,4 +787,97 @@ if (isMobile) {
       slider.dispatchEvent(new Event('input'));
     }, { passive: false });
   });
+}
+
+// Film selection change handler
+document.getElementById('filmSelect').addEventListener('change', async (e) => {
+  const selectedFilm = e.target.value;
+  try {
+    const response = await fetch(`luts/${selectedFilm}.cube`);
+    if (!response.ok) {
+      throw new Error(`Failed to load LUT: ${response.statusText}`);
+    }
+    const lutText = await response.text();
+    lutData = parseCubeLUT(lutText);
+    if (fullResImage) applyEffects(true);
+  } catch (error) {
+    console.error('Error loading LUT:', error);
+  }
+});
+
+function parseCubeLUT(lutText) {
+  const lines = lutText.split('\n');
+  let size = 33; // Default size
+  let values = [];
+  let readingData = false;
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine === '' || trimmedLine.startsWith('#')) continue;
+    
+    if (trimmedLine.startsWith('LUT_3D_SIZE')) {
+      size = parseInt(trimmedLine.split(' ')[1]);
+      continue;
+    }
+    
+    if (!readingData && !trimmedLine.startsWith('TITLE') && !trimmedLine.startsWith('DOMAIN')) {
+      readingData = true;
+    }
+    
+    if (readingData) {
+      const rgb = trimmedLine.split(' ').map(Number).filter(n => !isNaN(n));
+      if (rgb.length === 3) {
+        values.push(...rgb);
+      }
+    }
+  }
+
+  return { size, values };
+}
+
+function boxBlur(data, width, height, radius) {
+  const tempData = new Uint8ClampedArray(data);
+  const size = radius * 2 + 1;
+  const scale = 1 / (size * size);
+
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0, g = 0, b = 0;
+      for (let i = -radius; i <= radius; i++) {
+        const px = Math.min(Math.max(x + i, 0), width - 1);
+        const idx = (y * width + px) * 4;
+        r += tempData[idx];
+        g += tempData[idx + 1];
+        b += tempData[idx + 2];
+      }
+      const idx = (y * width + x) * 4;
+      data[idx] = r * scale;
+      data[idx + 1] = g * scale;
+      data[idx + 2] = b * scale;
+      data[idx + 3] = tempData[idx + 3]; // Keep original alpha
+    }
+  }
+
+  // Copy current state for vertical pass
+  tempData.set(data);
+
+  // Vertical pass
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let r = 0, g = 0, b = 0;
+      for (let i = -radius; i <= radius; i++) {
+        const py = Math.min(Math.max(y + i, 0), height - 1);
+        const idx = (py * width + x) * 4;
+        r += tempData[idx];
+        g += tempData[idx + 1];
+        b += tempData[idx + 2];
+      }
+      const idx = (y * width + x) * 4;
+      data[idx] = r * scale;
+      data[idx + 1] = g * scale;
+      data[idx + 2] = b * scale;
+      data[idx + 3] = tempData[idx + 3]; // Keep original alpha
+    }
+  }
 }
