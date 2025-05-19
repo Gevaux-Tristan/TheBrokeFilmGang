@@ -162,18 +162,16 @@ function processImageEffects(ctx, width, height, isExport = false) {
   // Apply LUT first if present and intensity > 0
   if (lutData && lutIntensity > 0) {
     try {
-      // Process LUT in place to avoid extra array allocation
-      for (let i = 0; i < data.length; i += 4) {
-        const r = originalData[i] / 255;
-        const g = originalData[i + 1] / 255;
-        const b = originalData[i + 2] / 255;
-        
-        const newColor = trilinearLUTLookup(lutData, r, g, b);
-        
-        // Apply LUT intensity
-        data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
-        data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
-        data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
+      // Process LUT in place
+      applyLUTToImage(data, lutData);
+      
+      // Blend with original based on intensity if not at 100%
+      if (lutIntensity < 1) {
+        for (let i = 0; i < data.length; i += 4) {
+          data[i] = Math.round(originalData[i] * (1 - lutIntensity) + data[i] * lutIntensity);
+          data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + data[i + 1] * lutIntensity);
+          data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + data[i + 2] * lutIntensity);
+        }
       }
     } catch (error) {
       console.error("Error applying LUT:", error);
@@ -210,10 +208,10 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply blur if needed
+  // Apply blur if needed - reduced intensity
   if (blurAmount > 0) {
-    const maxBlur = 20;
-    const blurRadius = (blurAmount / 100) * maxBlur;
+    const maxBlur = 10; // Reduced from 20 to 10 for less intense blur
+    const blurRadius = (blurAmount / 100) * maxBlur * 0.5; // Added 0.5 multiplier to further reduce intensity
     applyFastBlur(ctx, width, height, blurRadius);
   }
 
@@ -509,81 +507,84 @@ function addGrain(ctx, width, height, amount) {
   ctx.putImageData(imageData, 0, 0);
 }
 
-function trilinearLUTLookup(lut, r, g, b) {
-  if (!lut || !lut.size || !lut.values) {
-    console.error("Invalid LUT data:", lut);
-    return [r, g, b]; // Return original color if LUT is invalid
+function applyLUTToImage(pixels, lut) {
+  if (!lut || !lut.values || !lut.size) {
+    console.error("Invalid LUT:", lut);
+    return;
   }
 
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i] / 255;
+    const g = pixels[i + 1] / 255;
+    const b = pixels[i + 2] / 255;
+
+    try {
+      const newColor = trilinearLUTLookup(lut, r, g, b);
+      
+      // Ensure valid values and convert back to 0-255 range
+      pixels[i] = Math.round(Math.max(0, Math.min(1, newColor[0])) * 255);
+      pixels[i + 1] = Math.round(Math.max(0, Math.min(1, newColor[1])) * 255);
+      pixels[i + 2] = Math.round(Math.max(0, Math.min(1, newColor[2])) * 255);
+    } catch (error) {
+      console.error("Error in LUT lookup for pixel", i, ":", error);
+      // Keep original values on error
+      continue;
+    }
+  }
+}
+
+function trilinearLUTLookup(lut, r, g, b) {
   const size = lut.size;
   const maxIndex = size - 1;
 
-  // Calculer les indices flottants
-  const rF = r * maxIndex;
-  const gF = g * maxIndex;
-  const bF = b * maxIndex;
+  // Scale input values to LUT space
+  const rF = Math.min(Math.max(r * maxIndex, 0), maxIndex);
+  const gF = Math.min(Math.max(g * maxIndex, 0), maxIndex);
+  const bF = Math.min(Math.max(b * maxIndex, 0), maxIndex);
 
-  // Log sample input values
-  if (r === 0 && g === 0 && b === 0) {
-    console.log("LUT lookup for black:", { rF, gF, bF });
-  }
-
-  // Indices entiers et fractions
+  // Get integer indices and fractions
   const r0 = Math.floor(rF), r1 = Math.min(r0 + 1, maxIndex);
   const g0 = Math.floor(gF), g1 = Math.min(g0 + 1, maxIndex);
   const b0 = Math.floor(bF), b1 = Math.min(b0 + 1, maxIndex);
-  const dr = rF - r0, dg = gF - g0, db = bF - b0;
+  const dr = rF - r0;
+  const dg = gF - g0;
+  const db = bF - b0;
 
-  try {
-    // Fonction d'accès
-    const idx = (ri, gi, bi) => {
-      const index = ri + gi * size + bi * size * size;
-      if (index >= lut.values.length) {
-        throw new Error(`LUT index out of bounds: ${index} >= ${lut.values.length}`);
-      }
-      return lut.values[index];
-    };
+  // Helper function to get LUT value
+  const getLUTValue = (ri, gi, bi) => {
+    const index = (ri + gi * size + bi * size * size) * 3;
+    return [
+      lut.values[index],
+      lut.values[index + 1],
+      lut.values[index + 2]
+    ];
+  };
 
-    const v000 = idx(r0, g0, b0);
-    const v100 = idx(r1, g0, b0);
-    const v010 = idx(r0, g1, b0);
-    const v110 = idx(r1, g1, b0);
-    const v001 = idx(r0, g0, b1);
-    const v101 = idx(r1, g0, b1);
-    const v011 = idx(r0, g1, b1);
-    const v111 = idx(r1, g1, b1);
+  // Get all corner values
+  const c000 = getLUTValue(r0, g0, b0);
+  const c100 = getLUTValue(r1, g0, b0);
+  const c010 = getLUTValue(r0, g1, b0);
+  const c110 = getLUTValue(r1, g1, b0);
+  const c001 = getLUTValue(r0, g0, b1);
+  const c101 = getLUTValue(r1, g0, b1);
+  const c011 = getLUTValue(r0, g1, b1);
+  const c111 = getLUTValue(r1, g1, b1);
 
-    // Log sample interpolation values for black
-    if (r === 0 && g === 0 && b === 0) {
-      console.log("LUT interpolation values for black:", {
-        v000, v100, v010, v110,
-        v001, v101, v011, v111
-      });
-    }
+  // Perform trilinear interpolation
+  const result = [0, 0, 0];
+  for (let i = 0; i < 3; i++) {
+    const c00 = c000[i] * (1 - dr) + c100[i] * dr;
+    const c01 = c001[i] * (1 - dr) + c101[i] * dr;
+    const c10 = c010[i] * (1 - dr) + c110[i] * dr;
+    const c11 = c011[i] * (1 - dr) + c111[i] * dr;
 
-    // Interpolation trilineaire
-    const lerp = (a, b, t) => a * (1 - t) + b * t;
-    let out = [0, 0, 0];
-    for (let c = 0; c < 3; c++) {
-      const c00 = lerp(v000[c], v100[c], dr);
-      const c01 = lerp(v001[c], v101[c], dr);
-      const c10 = lerp(v010[c], v110[c], dr);
-      const c11 = lerp(v011[c], v111[c], dr);
-      const c0 = lerp(c00, c10, dg);
-      const c1 = lerp(c01, c11, dg);
-      out[c] = lerp(c0, c1, db);
-    }
+    const c0 = c00 * (1 - dg) + c10 * dg;
+    const c1 = c01 * (1 - dg) + c11 * dg;
 
-    // Log sample output for black
-    if (r === 0 && g === 0 && b === 0) {
-      console.log("LUT output for black:", out);
-    }
-
-    return out;
-  } catch (error) {
-    console.error("Error in trilinear LUT lookup:", error);
-    return [r, g, b]; // Return original color on error
+    result[i] = c0 * (1 - db) + c1 * db;
   }
+
+  return result;
 }
 
 // Nouvelle fonction de flou simplifiée
@@ -755,72 +756,6 @@ function applyFastBlur(ctx, width, height, radius) {
     
     ctx.putImageData(imgData, 0, 0);
   }
-}
-
-function applyLUTToImage(pixels, lut) {
-  if (!lut || !lut.values || !lut.size) {
-    console.error("LUT invalide:", lut);
-    return;
-  }
-
-  console.log("Starting LUT application - size:", lut.size, "values length:", lut.values.length);
-  console.log("Sample LUT values:", lut.values.slice(0, 3));
-  
-  let invalidValueCount = 0;
-  let outOfRangeCount = 0;
-  
-  for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i] / 255;
-    const g = pixels[i + 1] / 255;
-    const b = pixels[i + 2] / 255;
-
-    try {
-      // Log a sample of input values
-      if (i === 0) {
-        console.log("Sample input RGB:", [r, g, b]);
-      }
-
-      // Appliquer le LUT
-      const newColor = trilinearLUTLookup(lut, r, g, b);
-
-      // Log a sample of output values
-      if (i === 0) {
-        console.log("Sample output RGB:", newColor);
-      }
-
-      // Check for invalid values
-      if (newColor.some(v => isNaN(v) || !isFinite(v))) {
-        invalidValueCount++;
-        continue;
-      }
-
-      // Check for out of range values
-      if (newColor.some(v => v < 0 || v > 1)) {
-        outOfRangeCount++;
-        newColor[0] = Math.min(1, Math.max(0, newColor[0]));
-        newColor[1] = Math.min(1, Math.max(0, newColor[1]));
-        newColor[2] = Math.min(1, Math.max(0, newColor[2]));
-      }
-
-      // Mettre à jour les pixels
-      pixels[i] = newColor[0] * 255;
-      pixels[i + 1] = newColor[1] * 255;
-      pixels[i + 2] = newColor[2] * 255;
-    } catch (error) {
-      console.error("Error applying LUT to pixel", i, ":", error);
-      return;
-    }
-  }
-  
-  if (invalidValueCount > 0 || outOfRangeCount > 0) {
-    console.warn("LUT application stats:", {
-      invalidValues: invalidValueCount,
-      outOfRangeValues: outOfRangeCount,
-      totalPixels: pixels.length / 4
-    });
-  }
-  
-  console.log("LUT application completed");
 }
 
 // Add touch event handling for mobile
