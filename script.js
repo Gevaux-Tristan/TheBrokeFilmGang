@@ -796,21 +796,48 @@ function addGrain(ctx, width, height, amount) {
   const noiseBufferB = new Float32Array(width * height);
   
   // Generate perlin-like noise for more natural grain pattern
-  function generateSmoothNoise(buffer, frequency) {
-    const octaves = 4;
-    const persistence = 0.5;
+  function generateSmoothNoise(buffer, frequency, octaves) {
+    // Clear buffer
+    buffer.fill(0);
     
-    for (let y = 0; y < height; y += frequency) {
-      for (let x = 0; x < width; x += frequency) {
-        const noise = (Math.random() * 2 - 1) * amount * 2; // Doubled the effect
-        
-        // Apply noise to surrounding pixels with smooth falloff
-        for (let dy = 0; dy < frequency && y + dy < height; dy++) {
-          for (let dx = 0; dx < frequency && x + dx < width; dx++) {
-            const distance = Math.sqrt((dx * dx) + (dy * dy)) / frequency;
-            const falloff = Math.max(0, 1 - distance);
-            const idx = (y + dy) * width + (x + dx);
-            buffer[idx] = noise * falloff;
+    // Generate multiple octaves of noise
+    for (let octave = 0; octave < octaves; octave++) {
+      const freq = frequency * Math.pow(2, octave);
+      const amp = Math.pow(0.5, octave + 1); // Reduce amplitude for higher octaves
+      
+      for (let y = 0; y < height; y += freq) {
+        for (let x = 0; x < width; x += freq) {
+          // Generate smoother noise using multiple random samples
+          let noise = 0;
+          for (let i = 0; i < 4; i++) {
+            noise += (Math.random() * 2 - 1);
+          }
+          noise = (noise / 4) * amount * amp;
+          
+          // Apply noise to surrounding pixels with gaussian-like falloff
+          const radius = freq * 1.5;
+          const radiusSq = radius * radius;
+          
+          const startY = Math.max(0, Math.floor(y - radius));
+          const endY = Math.min(height, Math.ceil(y + radius));
+          const startX = Math.max(0, Math.floor(x - radius));
+          const endX = Math.min(width, Math.ceil(x + radius));
+          
+          for (let py = startY; py < endY; py++) {
+            const dy = py - y;
+            const dySq = dy * dy;
+            
+            for (let px = startX; px < endX; px++) {
+              const dx = px - x;
+              const distSq = (dx * dx + dySq) / radiusSq;
+              
+              if (distSq < 1) {
+                // Gaussian-like falloff
+                const falloff = Math.exp(-distSq * 2);
+                const idx = py * width + px;
+                buffer[idx] += noise * falloff;
+              }
+            }
           }
         }
       }
@@ -818,9 +845,10 @@ function addGrain(ctx, width, height, amount) {
   }
   
   // Generate slightly different noise patterns for each color channel
-  generateSmoothNoise(noiseBufferR, 4);
-  generateSmoothNoise(noiseBufferG, 4);
-  generateSmoothNoise(noiseBufferB, 4);
+  // Use different frequencies and octaves for each channel to create more natural-looking grain
+  generateSmoothNoise(noiseBufferR, 3, 3); // Fine grain for red
+  generateSmoothNoise(noiseBufferG, 4, 3); // Medium grain for green
+  generateSmoothNoise(noiseBufferB, 5, 3); // Slightly coarser grain for blue
   
   // Apply grain with luminance dependency and color variation
   for (let y = 0; y < height; y++) {
@@ -832,7 +860,7 @@ function addGrain(ctx, width, height, amount) {
       
       // Adjust grain strength based on luminance
       // More visible in shadows and midtones, less in highlights
-      const luminanceMultiplier = 1.5 - luminance; // Changed from quadratic to linear falloff
+      const luminanceMultiplier = Math.pow(1.2 - luminance, 1.5);
       
       // Get noise values for each channel
       const idx = y * width + x;
@@ -840,10 +868,20 @@ function addGrain(ctx, width, height, amount) {
       const noiseG = noiseBufferG[idx] * luminanceMultiplier;
       const noiseB = noiseBufferB[idx] * luminanceMultiplier;
       
-      // Apply noise with subtle color cross-talk
-      data[i] = Math.min(255, Math.max(0, data[i] + noiseR * 255));
-      data[i+1] = Math.min(255, Math.max(0, data[i+1] + noiseG * 255));
-      data[i+2] = Math.min(255, Math.max(0, data[i+2] + noiseB * 255));
+      // Apply noise with color cross-talk and film-like blending
+      const crossTalk = 0.2; // 20% color bleeding between channels
+      const r = noiseR + (noiseG + noiseB) * crossTalk;
+      const g = noiseG + (noiseR + noiseB) * crossTalk;
+      const b = noiseB + (noiseR + noiseG) * crossTalk;
+      
+      // Use screen blending mode for more film-like grain
+      function screenBlend(base, grain) {
+        return 255 - ((255 - base) * (255 - (grain * 255))) / 255;
+      }
+      
+      data[i] = screenBlend(data[i], r);
+      data[i+1] = screenBlend(data[i+1], g);
+      data[i+2] = screenBlend(data[i+2], b);
     }
   }
   
@@ -1021,12 +1059,12 @@ if (resetBtn) {
 // ISO grain logic
 const isoValues = {
   0: 0,        // No grain
-  100: 0.02,   // Very light grain
-  200: 0.035,  // Light grain
-  400: 0.05,   // Medium grain
-  800: 0.075,  // Medium-strong grain
-  1600: 0.1,   // Strong grain
-  3200: 0.15   // Very strong grain
+  100: 0.015,  // Very light grain
+  200: 0.025,  // Light grain
+  400: 0.04,   // Medium grain
+  800: 0.06,   // Medium-strong grain
+  1600: 0.08,  // Strong grain
+  3200: 0.1    // Very strong grain
 };
 
 // Liste des LUTs noir et blanc
