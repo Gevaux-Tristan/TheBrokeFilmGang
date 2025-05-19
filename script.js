@@ -125,7 +125,7 @@ const EXPORT_MAX_WIDTH = 1080;
 const EXPORT_MAX_HEIGHT = 1350;
 
 // Increase throttle delay for better performance
-const THROTTLE_DELAY = isMobile ? 150 : 50; // Longer delay on mobile
+const THROTTLE_DELAY = isMobile ? 250 : 50; // Increased delay on mobile
 
 // Optimize throttling function
 function createThrottledHandler(callback) {
@@ -176,7 +176,6 @@ function processImageEffects(ctx, width, height, isExport = false) {
       }
     } catch (error) {
       console.error("Error applying LUT:", error);
-      // Keep original values on error
       data.set(originalData);
     }
   }
@@ -190,19 +189,16 @@ function processImageEffects(ctx, width, height, isExport = false) {
       for (let j = 0; j < 3; j++) {
         let value = data[i + j] / 255;
         
-        // Apply exposure first
         if (exposureAmount !== 0) {
           value = value * exposureFactor;
         }
         
-        // Then apply contrast
         if (contrastAmount !== 0) {
           value = value - 0.5;
           value = value * (1 + contrastFactor);
           value = value + 0.5;
         }
         
-        // Clamp values
         data[i + j] = Math.round(Math.max(0, Math.min(1, value)) * 255);
       }
     }
@@ -210,15 +206,15 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply blur if enabled
+  // Apply blur if enabled - optimized for mobile
   if (blurAmount > 0) {
-    const blurRadius = Math.max(1, Math.min(20, blurAmount * 0.2));
+    const blurRadius = Math.max(1, Math.min(isMobile ? 10 : 20, blurAmount * 0.2));
     applyFastBlur(ctx, width, height, blurRadius);
   }
 
-  // Apply grain if enabled
+  // Apply grain if enabled - optimized for mobile
   if (selectedISO > 0) {
-    const grainAmount = selectedISO;
+    const grainAmount = isMobile ? selectedISO * 0.8 : selectedISO; // Slightly reduce grain on mobile
     addGrain(ctx, width, height, grainAmount);
   }
 }
@@ -703,7 +699,7 @@ const blackAndWhiteLUTs = [
 function applyFastBlur(ctx, width, height, radius) {
   if (radius <= 0) return;
   
-  const iterations = Math.min(3, Math.ceil(radius / 2));
+  const iterations = isMobile ? Math.min(2, Math.ceil(radius / 2)) : Math.min(3, Math.ceil(radius / 2));
   const iterationRadius = Math.max(1, Math.ceil(radius / iterations));
   
   for (let i = 0; i < iterations; i++) {
@@ -730,7 +726,7 @@ function applyFastBlur(ctx, width, height, radius) {
         pixels[i] = r / count;
         pixels[i + 1] = g / count;
         pixels[i + 2] = b / count;
-        pixels[i + 3] = tempPixels[i + 3]; // Preserve alpha
+        pixels[i + 3] = tempPixels[i + 3];
       }
     }
     
@@ -754,7 +750,7 @@ function applyFastBlur(ctx, width, height, radius) {
         pixels[i] = r / count;
         pixels[i + 1] = g / count;
         pixels[i + 2] = b / count;
-        pixels[i + 3] = tempPixels[i + 3]; // Preserve alpha
+        pixels[i + 3] = tempPixels[i + 3];
       }
     }
     
@@ -766,21 +762,33 @@ function applyFastBlur(ctx, width, height, radius) {
 if (isMobile) {
   const sliders = document.querySelectorAll('input[type="range"]');
   sliders.forEach(slider => {
+    // Prevent default touch behavior
     slider.addEventListener('touchstart', e => {
       e.preventDefault();
       slider.focus();
     }, { passive: false });
     
+    // Handle touch move with improved performance
     slider.addEventListener('touchmove', e => {
       e.preventDefault();
       const touch = e.touches[0];
       const rect = slider.getBoundingClientRect();
       const value = ((touch.clientX - rect.left) / rect.width) * 
-                    (slider.max - slider.min) + Number(slider.min);
-      slider.value = Math.min(Math.max(value, slider.min), slider.max);
-      slider.dispatchEvent(new Event('input'));
+                    (parseFloat(slider.max) - parseFloat(slider.min)) + parseFloat(slider.min);
+      slider.value = Math.min(Math.max(value, parseFloat(slider.min)), parseFloat(slider.max));
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { passive: false });
+
+    // Handle touch end
+    slider.addEventListener('touchend', e => {
+      e.preventDefault();
+      slider.dispatchEvent(new Event('change', { bubbles: true }));
     }, { passive: false });
   });
+
+  // Optimize canvas for mobile
+  canvas.style.imageRendering = 'optimizeSpeed';
+  canvas.style.webkitImageRendering = 'optimizeSpeed';
 }
 
 // Film selection change handler
