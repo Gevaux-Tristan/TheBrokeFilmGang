@@ -349,13 +349,9 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
     exportCtx.putImageData(imgData, 0, 0);
 
+    // Apply blur if enabled
     if (blurAmount > 0) {
-      const maxBlur = 20;
-      // Scale blur radius based on resolution difference
-      const previewWidth = isMobile ? 640 : 1200;
-      const scaleFactor = exportWidth / previewWidth;
-      const blurRadius = (blurAmount / 100) * maxBlur * scaleFactor;
-      applyFastBlur(exportCtx, exportWidth, exportHeight, blurRadius);
+      applyRadialBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
     // Scale grain for export resolution
@@ -364,34 +360,34 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const grainAmount = selectedISO * scaleFactor;
     addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
     
-    // Générer un nom de fichier unique
+    // Generate unique filename
     const now = new Date();
     const dateStr = now.toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
     const lutName = currentLutName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
     const isoStr = selectedISO.toString();
     const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
     
-    // Convertir en Blob pour une meilleure qualité
+    // Convert to Blob for better quality
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', 0.95);
     });
     
     if (!blob) {
-      throw new Error("Échec de la création du Blob");
+      throw new Error("Failed to create Blob");
     }
     
-    // Créer l'URL et télécharger
+    // Create URL and download
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = fileName;
     link.href = url;
     link.click();
     
-    // Nettoyer l'URL
+    // Clean up URL
     setTimeout(() => URL.revokeObjectURL(url), 100);
   } catch (error) {
-    console.error("Erreur lors de l'export:", error);
-    alert("Une erreur est survenue lors de l'export. Veuillez réessayer.");
+    console.error("Export error:", error);
+    alert("An error occurred during export. Please try again.");
   }
 });
 
