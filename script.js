@@ -267,6 +267,28 @@ function applyEffects(immediate = false) {
 document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!fullResImage) return;
 
+  // Debug: Log device type
+  console.log('Export triggered. isMobile:', isMobile);
+
+  // On mobile, force LUT re-parse if possible
+  if (isMobile) {
+    try {
+      const selectedFilm = document.getElementById('filmSelect').value;
+      if (selectedFilm) {
+        const response = await fetch(`luts/${selectedFilm}.cube`);
+        if (response.ok) {
+          const lutText = await response.text();
+          lutData = parseCubeLUT(lutText);
+          console.log('LUT re-parsed for export on mobile:', lutData);
+        } else {
+          console.warn('Failed to re-fetch LUT for export:', response.statusText);
+        }
+      }
+    } catch (err) {
+      console.error('Error re-parsing LUT for mobile export:', err);
+    }
+  }
+
   // Check if LUT is loaded if a LUT is selected
   if (document.getElementById('filmSelect').value && lutIntensity > 0) {
     if (!lutData || !lutData.values || !lutData.size) {
@@ -279,12 +301,10 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
   try {
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
-    
     // Calculate export dimensions based on Instagram requirements
     const aspectRatio = fullResImage.width / fullResImage.height;
     let exportWidth = fullResImage.width;
     let exportHeight = fullResImage.height;
-    
     if (exportWidth > EXPORT_MAX_WIDTH) {
       exportWidth = EXPORT_MAX_WIDTH;
       exportHeight = Math.floor(exportWidth / aspectRatio);
@@ -293,19 +313,19 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       exportHeight = EXPORT_MAX_HEIGHT;
       exportWidth = Math.floor(exportHeight * aspectRatio);
     }
-    
     exportCanvas.width = exportWidth;
     exportCanvas.height = exportHeight;
-    
     exportCtx.imageSmoothingEnabled = true;
     exportCtx.imageSmoothingQuality = 'high';
-    
+    // Debug: Log export canvas size
+    console.log('Export canvas size:', exportWidth, exportHeight);
     // Draw the original image
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
-    
     // Apply LUT
     if (lutData && lutIntensity > 0) {
       try {
+        // Debug: Log LUT size
+        console.log('Applying LUT during export. LUT size:', lutData.size, 'LUT values length:', lutData.values.length);
         const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
         const data = imgData.data;
         const originalData = new Uint8ClampedArray(data);
@@ -325,7 +345,6 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
         return;
       }
     }
-
     // Apply exposure and contrast
     if (exposureAmount !== 0 || contrastAmount !== 0) {
       const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
@@ -393,7 +412,13 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     // Cleanup
     setTimeout(() => URL.revokeObjectURL(url), 100);
   } catch (error) {
-    console.error("Export error:", error);
+    console.error("Export error:", error, {
+      lutData,
+      fullResImage,
+      exportCanvas,
+      exportWidth,
+      exportHeight
+    });
     alert("An error occurred during export. Please try again.");
   }
 });
