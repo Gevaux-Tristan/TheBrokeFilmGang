@@ -169,7 +169,6 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
         const newColor = trilinearLUTLookup(lutData, r, g, b);
         
-        // Apply LUT with intensity
         data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
         data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
         data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
@@ -206,7 +205,7 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply radial blur if enabled
+  // Apply blur if enabled
   if (blurAmount > 0) {
     applyRadialBlur(ctx, width, height, blurAmount);
   }
@@ -892,54 +891,64 @@ function applyRadialBlur(ctx, width, height, amount) {
   const centerX = width / 2;
   const centerY = height / 2;
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
-  const blurStrength = amount * 0.03; // Increased blur strength
+  const blurStrength = amount * 0.03;
   
-  // Create a temporary canvas for the radial blur
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = width;
-  tempCanvas.height = height;
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCtx.putImageData(imgData, 0, 0);
+  // Optimize for mobile
+  const isMobileDevice = isMobile;
+  const maxRadius = isMobileDevice ? 6 : 8;
+  const sampleCount = isMobileDevice ? 8 : 12;
+  const blendFactor = isMobileDevice ? 0.5 : 0.6;
   
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      // Calculate distance and angle from center
-      const dx = x - centerX;
-      const dy = y - centerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
+  // Pre-calculate angles for better performance
+  const angleStep = Math.PI * 2 / sampleCount;
+  const angles = new Array(sampleCount);
+  for (let i = 0; i < sampleCount; i++) {
+    angles[i] = i * angleStep;
+  }
+  
+  // Process in chunks for better performance
+  const chunkSize = isMobileDevice ? 4 : 8;
+  for (let chunkY = 0; chunkY < height; chunkY += chunkSize) {
+    for (let chunkX = 0; chunkX < width; chunkX += chunkSize) {
+      const endY = Math.min(chunkY + chunkSize, height);
+      const endX = Math.min(chunkX + chunkSize, width);
       
-      // Calculate blur radius based on distance from center
-      const normalizedDistance = distance / maxDistance;
-      const blurRadius = Math.max(1, Math.min(8, normalizedDistance * blurStrength * 15));
-      
-      // Sample points along the radial direction
-      let r = 0, g = 0, b = 0, count = 0;
-      const samples = Math.min(12, Math.ceil(blurRadius * 2));
-      
-      for (let i = 0; i < samples; i++) {
-        const t = (i / (samples - 1)) * 2 - 1; // Range from -1 to 1
-        const sampleDistance = distance + t * blurRadius;
-        const sampleX = Math.round(centerX + Math.cos(angle) * sampleDistance);
-        const sampleY = Math.round(centerY + Math.sin(angle) * sampleDistance);
-        
-        if (sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
-          const idx = (sampleY * width + sampleX) * 4;
-          r += tempPixels[idx];
-          g += tempPixels[idx + 1];
-          b += tempPixels[idx + 2];
-          count++;
+      for (let y = chunkY; y < endY; y++) {
+        for (let x = chunkX; x < endX; x++) {
+          const dx = x - centerX;
+          const dy = y - centerY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx);
+          
+          const normalizedDistance = distance / maxDistance;
+          const blurRadius = Math.max(1, Math.min(maxRadius, normalizedDistance * blurStrength * 15));
+          
+          let r = 0, g = 0, b = 0, count = 0;
+          
+          // Sample along radial direction
+          for (let i = 0; i < sampleCount; i++) {
+            const t = (i / (sampleCount - 1)) * 2 - 1;
+            const sampleDistance = distance + t * blurRadius;
+            const sampleX = Math.round(centerX + Math.cos(angle) * sampleDistance);
+            const sampleY = Math.round(centerY + Math.sin(angle) * sampleDistance);
+            
+            if (sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
+              const idx = (sampleY * width + sampleX) * 4;
+              r += tempPixels[idx];
+              g += tempPixels[idx + 1];
+              b += tempPixels[idx + 2];
+              count++;
+            }
+          }
+          
+          if (count > 0) {
+            const idx = (y * width + x) * 4;
+            pixels[idx] = tempPixels[idx] * blendFactor + (r / count) * (1 - blendFactor);
+            pixels[idx + 1] = tempPixels[idx + 1] * blendFactor + (g / count) * (1 - blendFactor);
+            pixels[idx + 2] = tempPixels[idx + 2] * blendFactor + (b / count) * (1 - blendFactor);
+            pixels[idx + 3] = tempPixels[idx + 3];
+          }
         }
-      }
-      
-      if (count > 0) {
-        const idx = (y * width + x) * 4;
-        // Blend original pixel with blurred samples
-        const blendFactor = 0.6; // Reduced to make blur more visible
-        pixels[idx] = tempPixels[idx] * blendFactor + (r / count) * (1 - blendFactor);
-        pixels[idx + 1] = tempPixels[idx + 1] * blendFactor + (g / count) * (1 - blendFactor);
-        pixels[idx + 2] = tempPixels[idx + 2] * blendFactor + (b / count) * (1 - blendFactor);
-        pixels[idx + 3] = tempPixels[idx + 3];
       }
     }
   }
