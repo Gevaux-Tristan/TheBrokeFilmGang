@@ -305,13 +305,26 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const aspectRatio = fullResImage.width / fullResImage.height;
     let exportWidth = fullResImage.width;
     let exportHeight = fullResImage.height;
-    if (exportWidth > EXPORT_MAX_WIDTH) {
-      exportWidth = EXPORT_MAX_WIDTH;
-      exportHeight = Math.floor(exportWidth / aspectRatio);
-    }
-    if (exportHeight > EXPORT_MAX_HEIGHT) {
-      exportHeight = EXPORT_MAX_HEIGHT;
-      exportWidth = Math.floor(exportHeight * aspectRatio);
+    // Reduce export size for mobile
+    const MOBILE_EXPORT_MAX = 800;
+    if (isMobile) {
+      if (exportWidth > MOBILE_EXPORT_MAX) {
+        exportWidth = MOBILE_EXPORT_MAX;
+        exportHeight = Math.floor(exportWidth / aspectRatio);
+      }
+      if (exportHeight > MOBILE_EXPORT_MAX) {
+        exportHeight = MOBILE_EXPORT_MAX;
+        exportWidth = Math.floor(exportHeight * aspectRatio);
+      }
+    } else {
+      if (exportWidth > EXPORT_MAX_WIDTH) {
+        exportWidth = EXPORT_MAX_WIDTH;
+        exportHeight = Math.floor(exportWidth / aspectRatio);
+      }
+      if (exportHeight > EXPORT_MAX_HEIGHT) {
+        exportHeight = EXPORT_MAX_HEIGHT;
+        exportWidth = Math.floor(exportHeight * aspectRatio);
+      }
     }
     exportCanvas.width = exportWidth;
     exportCanvas.height = exportHeight;
@@ -349,68 +362,63 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     if (exposureAmount !== 0 || contrastAmount !== 0) {
       const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
       const data = imgData.data;
-      
       for (let i = 0; i < data.length; i += 4) {
         let r = data[i] / 255;
         let g = data[i + 1] / 255;
         let b = data[i + 2] / 255;
-
         if (exposureAmount !== 0) {
           const exposureFactor = Math.pow(2, exposureAmount);
           r = Math.min(1, Math.max(0, r * exposureFactor));
           g = Math.min(1, Math.max(0, g * exposureFactor));
           b = Math.min(1, Math.max(0, b * exposureFactor));
         }
-
         if (contrastAmount !== 0) {
           const contrastFactor = contrastAmount / 100;
           r = applyContrast(r, contrastFactor);
           g = applyContrast(g, contrastFactor);
           b = applyContrast(b, contrastFactor);
         }
-
         data[i] = r * 255;
         data[i + 1] = g * 255;
         data[i + 2] = b * 255;
       }
       exportCtx.putImageData(imgData, 0, 0);
     }
-
     // Apply blur if enabled
     if (blurAmount > 0) {
       applyRadialBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
-
     // Apply grain
     if (selectedISO > 0) {
       const grainAmount = selectedISO;
       addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
     }
-    
     // Generate filename
     const now = new Date();
     const pad = n => n.toString().padStart(2, '0');
     const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
-    
     // Convert to Blob
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', 0.95);
     });
-    
     if (!blob) {
       throw new Error("Failed to create Blob");
     }
-    
-    // Download
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = fileName;
-    link.href = url;
-    link.click();
-    
-    // Cleanup
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    if (isMobile) {
+      // On mobile, open in new tab
+      window.open(url, '_blank');
+      alert('Image exported! If nothing happens, check your browser settings for popups.');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } else {
+      // Download
+      const link = document.createElement("a");
+      link.download = fileName;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
   } catch (error) {
     console.error("Export error:", error, {
       lutData,
