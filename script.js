@@ -292,28 +292,38 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     exportCtx.imageSmoothingEnabled = true;
     exportCtx.imageSmoothingQuality = 'high';
     
+    // Draw the original image
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
     
-    const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-    const data = imgData.data;
-    const originalData = new Uint8ClampedArray(data);
-
-    if (lutData) {
-      const lutProcessedData = new Uint8ClampedArray(data);
+    // Apply LUT
+    if (lutData && lutIntensity > 0) {
+      const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
+      const data = imgData.data;
+      const originalData = new Uint8ClampedArray(data);
+      
       try {
-        applyLUTToImage(lutProcessedData, lutData);
         for (let i = 0; i < data.length; i += 4) {
-          for (let c = 0; c < 3; c++) {
-            data[i + c] = Math.round(originalData[i + c] * (1 - lutIntensity) + lutProcessedData[i + c] * lutIntensity);
-          }
+          const r = originalData[i] / 255;
+          const g = originalData[i + 1] / 255;
+          const b = originalData[i + 2] / 255;
+
+          const newColor = trilinearLUTLookup(lutData, r, g, b);
+          
+          data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
+          data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
+          data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
         }
+        exportCtx.putImageData(imgData, 0, 0);
       } catch (error) {
         console.error("Error applying LUT:", error);
-        data.set(originalData);
       }
     }
 
+    // Apply exposure and contrast
     if (exposureAmount !== 0 || contrastAmount !== 0) {
+      const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
+      const data = imgData.data;
+      
       for (let i = 0; i < data.length; i += 4) {
         let r = data[i] / 255;
         let g = data[i + 1] / 255;
@@ -328,46 +338,37 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
         if (contrastAmount !== 0) {
           const contrastFactor = contrastAmount / 100;
-          if (contrastFactor < 0) {
-            const fadeAmount = Math.abs(contrastFactor);
-            const gray = 0.5;
-            r = r * (1 - fadeAmount) + gray * fadeAmount;
-            g = g * (1 - fadeAmount) + gray * fadeAmount;
-            b = b * (1 - fadeAmount) + gray * fadeAmount;
-          } else {
-            r = applyContrast(r, contrastFactor);
-            g = applyContrast(g, contrastFactor);
-            b = applyContrast(b, contrastFactor);
-          }
+          r = applyContrast(r, contrastFactor);
+          g = applyContrast(g, contrastFactor);
+          b = applyContrast(b, contrastFactor);
         }
 
         data[i] = r * 255;
         data[i + 1] = g * 255;
         data[i + 2] = b * 255;
       }
+      exportCtx.putImageData(imgData, 0, 0);
     }
-
-    exportCtx.putImageData(imgData, 0, 0);
 
     // Apply blur if enabled
     if (blurAmount > 0) {
       applyRadialBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
-    // Scale grain for export resolution
-    const previewWidth = isMobile ? 640 : 1200;
-    const scaleFactor = exportWidth / previewWidth;
-    const grainAmount = selectedISO * scaleFactor;
-    addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
+    // Apply grain
+    if (selectedISO > 0) {
+      const grainAmount = selectedISO;
+      addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
+    }
     
-    // Generate unique filename
+    // Generate filename
     const now = new Date();
     const dateStr = now.toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
     const lutName = currentLutName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
     const isoStr = selectedISO.toString();
     const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
     
-    // Convert to Blob for better quality
+    // Convert to Blob
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', 0.95);
     });
@@ -376,14 +377,14 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       throw new Error("Failed to create Blob");
     }
     
-    // Create URL and download
+    // Download
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = fileName;
     link.href = url;
     link.click();
     
-    // Clean up URL
+    // Cleanup
     setTimeout(() => URL.revokeObjectURL(url), 100);
   } catch (error) {
     console.error("Export error:", error);
@@ -891,27 +892,36 @@ function applyRadialBlur(ctx, width, height, amount) {
   const centerX = width / 2;
   const centerY = height / 2;
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
-  const blurStrength = amount * 0.02; // Subtle blur multiplier
+  const blurStrength = amount * 0.03; // Increased blur strength
+  
+  // Create a temporary canvas for the radial blur
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCtx.putImageData(imgData, 0, 0);
   
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      // Calculate distance from center
+      // Calculate distance and angle from center
       const dx = x - centerX;
       const dy = y - centerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const normalizedDistance = distance / maxDistance;
+      const angle = Math.atan2(dy, dx);
       
       // Calculate blur radius based on distance from center
-      const blurRadius = Math.max(1, Math.min(5, normalizedDistance * blurStrength * 10));
+      const normalizedDistance = distance / maxDistance;
+      const blurRadius = Math.max(1, Math.min(8, normalizedDistance * blurStrength * 15));
       
-      // Sample points in a circle around the current pixel
+      // Sample points along the radial direction
       let r = 0, g = 0, b = 0, count = 0;
-      const samples = Math.min(8, Math.ceil(blurRadius * 2));
+      const samples = Math.min(12, Math.ceil(blurRadius * 2));
       
       for (let i = 0; i < samples; i++) {
-        const angle = (i / samples) * Math.PI * 2;
-        const sampleX = Math.round(x + Math.cos(angle) * blurRadius);
-        const sampleY = Math.round(y + Math.sin(angle) * blurRadius);
+        const t = (i / (samples - 1)) * 2 - 1; // Range from -1 to 1
+        const sampleDistance = distance + t * blurRadius;
+        const sampleX = Math.round(centerX + Math.cos(angle) * sampleDistance);
+        const sampleY = Math.round(centerY + Math.sin(angle) * sampleDistance);
         
         if (sampleX >= 0 && sampleX < width && sampleY >= 0 && sampleY < height) {
           const idx = (sampleY * width + sampleX) * 4;
@@ -925,7 +935,7 @@ function applyRadialBlur(ctx, width, height, amount) {
       if (count > 0) {
         const idx = (y * width + x) * 4;
         // Blend original pixel with blurred samples
-        const blendFactor = 0.7; // Keep some of the original sharpness
+        const blendFactor = 0.6; // Reduced to make blur more visible
         pixels[idx] = tempPixels[idx] * blendFactor + (r / count) * (1 - blendFactor);
         pixels[idx + 1] = tempPixels[idx + 1] * blendFactor + (g / count) * (1 - blendFactor);
         pixels[idx + 2] = tempPixels[idx + 2] * blendFactor + (b / count) * (1 - blendFactor);
