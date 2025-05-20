@@ -362,10 +362,9 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     
     // Generate filename
     const now = new Date();
-    const dateStr = now.toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
-    const lutName = currentLutName.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
-    const isoStr = selectedISO.toString();
-    const fileName = `TBFG_${lutName}_${isoStr}ISO_${dateStr}.jpg`;
+    const pad = n => n.toString().padStart(2, '0');
+    const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
     
     // Convert to Blob
     const blob = await new Promise(resolve => {
