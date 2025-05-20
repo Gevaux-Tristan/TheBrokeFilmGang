@@ -311,40 +311,28 @@ input[type="range"]::-ms-thumb {
   pointer-events: auto;
 }
 
-/* Hover et Focus states */
-input[type="range"]:hover::-webkit-slider-thumb {
-  background: #0d1280;
-}
-
-input[type="range"]:hover::-moz-range-thumb {
-  background: #0d1280;
-}
-
-input[type="range"]:hover::-ms-thumb {
-  background: #0d1280;
-}
-
-input[type="range"]:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-  outline: none;
-}
-
-input[type="range"]:focus::-moz-range-thumb {
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-  outline: none;
-}
-
-input[type="range"]:focus::-ms-thumb {
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-  outline: none;
-}
-
 /* Optimisations mobile */
 @media (max-width: 1023px) {
+  input[type="range"] {
+    height: 32px;
+    margin: 0;
+    padding: 0;
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    margin: 15px 0;
+  }
+
   input[type="range"]::-webkit-slider-thumb {
     width: 32px;
     height: 32px;
-    margin-top: -16px; /* Updated: (32px - 2px) / 2 = 15px to center on the track */
+    margin-top: -15px;
+  }
+
+  input[type="range"]::-moz-range-track {
+    height: 2px;
+    margin: 15px 0;
   }
 
   input[type="range"]::-moz-range-thumb {
@@ -352,27 +340,51 @@ input[type="range"]:focus::-ms-thumb {
     height: 32px;
   }
 
+  input[type="range"]::-ms-track {
+    height: 2px;
+    margin: 15px 0;
+  }
+
   input[type="range"]::-ms-thumb {
     width: 32px;
     height: 32px;
   }
+}
 
-  input[type="range"] {
-    height: 32px; /* Match the thumb height */
+/* Remove duplicate slider styles */
+.slider-container input[type="range"] {
+  height: 40px;
+  margin: 0;
+  padding: 0;
+}
+
+.slider-container input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  margin: 19px 0;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  margin-top: -11px;
+}
+
+@media (max-width: 1023px) {
+  .slider-container input[type="range"] {
+    height: 32px;
     margin: 0;
-    padding: 15px 0; /* Add padding to ensure the thumb doesn't get cut off */
+    padding: 0;
   }
 
-  input[type="range"]::-webkit-slider-runnable-track {
-    margin: 0; /* Remove margin that was causing misalignment */
+  .slider-container input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    margin: 15px 0;
   }
 
-  input[type="range"]::-moz-range-track {
-    margin: 0;
-  }
-
-  input[type="range"]::-ms-track {
-    margin: 0;
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    width: 32px;
+    height: 32px;
+    margin-top: -15px;
   }
 }
 
