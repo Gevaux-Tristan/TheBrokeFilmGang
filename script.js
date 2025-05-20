@@ -406,18 +406,25 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       throw new Error("Failed to create Blob");
     }
     const url = URL.createObjectURL(blob);
-    if (isMobile) {
-      // On mobile, open in new tab
-      window.open(url, '_blank');
-      alert('Image exported! If nothing happens, check your browser settings for popups.');
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } else {
-      // Download
+    // Download (all devices)
+    let downloadStarted = false;
+    try {
       const link = document.createElement("a");
       link.download = fileName;
       link.href = url;
+      document.body.appendChild(link); // Needed for some mobile browsers
       link.click();
+      document.body.removeChild(link);
+      downloadStarted = true;
       setTimeout(() => URL.revokeObjectURL(url), 100);
+    } catch (e) {
+      console.warn('Download via <a> failed, fallback to opening image.', e);
+    }
+    // Fallback for mobile if download did not start
+    if (!downloadStarted && isMobile) {
+      window.location.href = url;
+      alert("Si le téléchargement ne démarre pas, l'image va s'ouvrir. Faites un appui long pour enregistrer la photo.");
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     }
   } catch (error) {
     console.error("Export error:", error, {
