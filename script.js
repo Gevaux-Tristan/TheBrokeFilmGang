@@ -267,6 +267,15 @@ function applyEffects(immediate = false) {
 document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!fullResImage) return;
 
+  // Check if LUT is loaded if a LUT is selected
+  if (document.getElementById('filmSelect').value && lutIntensity > 0) {
+    if (!lutData || !lutData.values || !lutData.size) {
+      alert("The selected LUT is not fully loaded yet. Please wait a moment and try again.");
+      console.error("Export aborted: LUT not loaded or invalid.", lutData);
+      return;
+    }
+  }
+
   try {
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
@@ -296,25 +305,24 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     
     // Apply LUT
     if (lutData && lutIntensity > 0) {
-      const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-      const data = imgData.data;
-      const originalData = new Uint8ClampedArray(data);
-      
       try {
+        const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
+        const data = imgData.data;
+        const originalData = new Uint8ClampedArray(data);
         for (let i = 0; i < data.length; i += 4) {
           const r = originalData[i] / 255;
           const g = originalData[i + 1] / 255;
           const b = originalData[i + 2] / 255;
-
           const newColor = trilinearLUTLookup(lutData, r, g, b);
-          
           data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
           data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
           data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
         }
         exportCtx.putImageData(imgData, 0, 0);
       } catch (error) {
-        console.error("Error applying LUT:", error);
+        console.error("Error applying LUT during export:", error, lutData);
+        alert("An error occurred while applying the LUT. Please try a different LUT or reload the page.");
+        return;
       }
     }
 
