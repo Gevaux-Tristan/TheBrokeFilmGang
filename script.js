@@ -403,7 +403,9 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       exportCanvas.toBlob(resolve, 'image/jpeg', 0.95);
     });
     if (!blob) {
-      throw new Error("Failed to create Blob");
+      alert("Export failed: could not create image file. Try with a smaller image or different settings.");
+      console.error("Export failed: Blob is null");
+      return;
     }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -412,7 +414,12 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Delay revoke to ensure download starts
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+      console.log('Object URL revoked:', url);
+    }, 1000);
+    console.log('Download triggered:', fileName);
   } catch (error) {
     console.error("Export error:", error, {
       lutData,
