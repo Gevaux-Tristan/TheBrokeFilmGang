@@ -270,78 +270,75 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
   // Debug: Log device type
   console.log('Export triggered. isMobile:', isMobile);
 
-  // On mobile, force LUT re-parse if possible
-  if (isMobile) {
-    try {
-      const selectedFilm = document.getElementById('filmSelect').value;
-      if (selectedFilm) {
-        const response = await fetch(`luts/${selectedFilm}.cube`);
-        if (response.ok) {
-          const lutText = await response.text();
-          lutData = parseCubeLUT(lutText);
-          console.log('LUT re-parsed for export on mobile:', lutData);
-        } else {
-          console.warn('Failed to re-fetch LUT for export:', response.statusText);
-        }
-      }
-    } catch (err) {
-      console.error('Error re-parsing LUT for mobile export:', err);
-    }
-  }
-
-  // Check if LUT is loaded if a LUT is selected
-  if (document.getElementById('filmSelect').value && lutIntensity > 0) {
-    if (!lutData || !lutData.values || !lutData.size) {
-      alert("The selected LUT is not fully loaded yet. Please wait a moment and try again.");
-      console.error("Export aborted: LUT not loaded or invalid.", lutData);
-      return;
-    }
-  }
+  // Show loading state
+  const downloadBtn = document.getElementById("downloadBtn");
+  const originalText = downloadBtn.innerHTML;
+  downloadBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v6m0 0l-3-3m3 3l3-3M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg> Processing...';
+  downloadBtn.disabled = true;
 
   try {
+    // On mobile, force LUT re-parse if possible
+    if (isMobile) {
+      try {
+        const selectedFilm = document.getElementById('filmSelect').value;
+        if (selectedFilm) {
+          const response = await fetch(`luts/${selectedFilm}.cube`);
+          if (response.ok) {
+            const lutText = await response.text();
+            lutData = parseCubeLUT(lutText);
+            console.log('LUT re-parsed for export on mobile:', lutData);
+          } else {
+            console.warn('Failed to re-fetch LUT for export:', response.statusText);
+          }
+        }
+      } catch (err) {
+        console.error('Error re-parsing LUT for mobile export:', err);
+      }
+    }
+
+    // Check if LUT is loaded if a LUT is selected
+    if (document.getElementById('filmSelect').value && lutIntensity > 0) {
+      if (!lutData || !lutData.values || !lutData.size) {
+        throw new Error("The selected LUT is not fully loaded yet. Please wait a moment and try again.");
+      }
+    }
+
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
+    
     // Calculate export dimensions based on Instagram requirements
     const aspectRatio = fullResImage.width / fullResImage.height;
     let exportWidth = fullResImage.width;
     let exportHeight = fullResImage.height;
-    // Reduce export size for mobile
-    const MOBILE_EXPORT_MAX = 800;
-    if (isMobile) {
-      if (exportWidth > MOBILE_EXPORT_MAX) {
-        exportWidth = MOBILE_EXPORT_MAX;
-        exportHeight = Math.floor(exportWidth / aspectRatio);
-      }
-      if (exportHeight > MOBILE_EXPORT_MAX) {
-        exportHeight = MOBILE_EXPORT_MAX;
-        exportWidth = Math.floor(exportHeight * aspectRatio);
-      }
-    } else {
-      if (exportWidth > EXPORT_MAX_WIDTH) {
-        exportWidth = EXPORT_MAX_WIDTH;
-        exportHeight = Math.floor(exportWidth / aspectRatio);
-      }
-      if (exportHeight > EXPORT_MAX_HEIGHT) {
-        exportHeight = EXPORT_MAX_HEIGHT;
-        exportWidth = Math.floor(exportHeight * aspectRatio);
-      }
+    
+    // Reduce export size for mobile - use smaller size for better performance
+    const MOBILE_EXPORT_MAX = isMobile ? 600 : 800;
+    if (exportWidth > MOBILE_EXPORT_MAX) {
+      exportWidth = MOBILE_EXPORT_MAX;
+      exportHeight = Math.floor(exportWidth / aspectRatio);
     }
+    if (exportHeight > MOBILE_EXPORT_MAX) {
+      exportHeight = MOBILE_EXPORT_MAX;
+      exportWidth = Math.floor(exportHeight * aspectRatio);
+    }
+
+    // Set canvas size
     exportCanvas.width = exportWidth;
     exportCanvas.height = exportHeight;
     exportCtx.imageSmoothingEnabled = true;
     exportCtx.imageSmoothingQuality = 'high';
-    // Debug: Log export canvas size
-    console.log('Export canvas size:', exportWidth, exportHeight);
+
     // Draw the original image
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
-    // Apply LUT
-    if (lutData && lutIntensity > 0) {
-      try {
-        // Debug: Log LUT size
-        console.log('Applying LUT during export. LUT size:', lutData.size, 'LUT values length:', lutData.values.length);
-        const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-        const data = imgData.data;
-        const originalData = new Uint8ClampedArray(data);
+
+    // Process effects in smaller chunks for mobile
+    const processChunk = async (startY, chunkHeight) => {
+      const imgData = exportCtx.getImageData(0, startY, exportWidth, chunkHeight);
+      const data = imgData.data;
+      const originalData = new Uint8ClampedArray(data);
+
+      // Apply LUT
+      if (lutData && lutIntensity > 0) {
         for (let i = 0; i < data.length; i += 4) {
           const r = originalData[i] / 255;
           const g = originalData[i + 1] / 255;
@@ -351,62 +348,82 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
           data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
           data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
         }
-        exportCtx.putImageData(imgData, 0, 0);
-      } catch (error) {
-        console.error("Error applying LUT during export:", error, error.message, error.stack, lutData);
-        alert("An error occurred while applying the LUT. Please try a different LUT or reload the page.");
-        return;
       }
-    }
-    // Apply exposure and contrast
-    if (exposureAmount !== 0 || contrastAmount !== 0) {
-      const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-      const data = imgData.data;
-      for (let i = 0; i < data.length; i += 4) {
-        let r = data[i] / 255;
-        let g = data[i + 1] / 255;
-        let b = data[i + 2] / 255;
-        if (exposureAmount !== 0) {
-          const exposureFactor = Math.pow(2, exposureAmount);
-          r = Math.min(1, Math.max(0, r * exposureFactor));
-          g = Math.min(1, Math.max(0, g * exposureFactor));
-          b = Math.min(1, Math.max(0, b * exposureFactor));
+
+      // Apply exposure and contrast
+      if (exposureAmount !== 0 || contrastAmount !== 0) {
+        for (let i = 0; i < data.length; i += 4) {
+          let r = data[i] / 255;
+          let g = data[i + 1] / 255;
+          let b = data[i + 2] / 255;
+          
+          if (exposureAmount !== 0) {
+            const exposureFactor = Math.pow(2, exposureAmount);
+            r = Math.min(1, Math.max(0, r * exposureFactor));
+            g = Math.min(1, Math.max(0, g * exposureFactor));
+            b = Math.min(1, Math.max(0, b * exposureFactor));
+          }
+          
+          if (contrastAmount !== 0) {
+            const contrastFactor = contrastAmount / 100;
+            r = applyContrast(r, contrastFactor);
+            g = applyContrast(g, contrastFactor);
+            b = applyContrast(b, contrastFactor);
+          }
+          
+          data[i] = r * 255;
+          data[i + 1] = g * 255;
+          data[i + 2] = b * 255;
         }
-        if (contrastAmount !== 0) {
-          const contrastFactor = contrastAmount / 100;
-          r = applyContrast(r, contrastFactor);
-          g = applyContrast(g, contrastFactor);
-          b = applyContrast(b, contrastFactor);
-        }
-        data[i] = r * 255;
-        data[i + 1] = g * 255;
-        data[i + 2] = b * 255;
       }
-      exportCtx.putImageData(imgData, 0, 0);
+
+      exportCtx.putImageData(imgData, 0, startY);
+    };
+
+    // Process image in chunks on mobile
+    if (isMobile) {
+      const CHUNK_SIZE = 100; // Process 100 rows at a time
+      for (let y = 0; y < exportHeight; y += CHUNK_SIZE) {
+        const chunkHeight = Math.min(CHUNK_SIZE, exportHeight - y);
+        await processChunk(y, chunkHeight);
+      }
+    } else {
+      await processChunk(0, exportHeight);
     }
+
     // Apply blur if enabled
     if (blurAmount > 0) {
       applyRadialBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
+
     // Apply grain
     if (selectedISO > 0) {
       const grainAmount = selectedISO;
       addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
     }
+
     // Generate filename
     const now = new Date();
     const pad = n => n.toString().padStart(2, '0');
     const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
-    // Convert to Blob
+
+    // Convert to Blob with lower quality on mobile
+    const quality = isMobile ? 0.85 : 0.95;
     const blob = await new Promise(resolve => {
-      exportCanvas.toBlob(resolve, 'image/jpeg', 0.95);
+      exportCanvas.toBlob(resolve, 'image/jpeg', quality);
     });
+
     if (!blob) {
-      alert("Export failed: could not create image file. Try with a smaller image or different settings.");
-      console.error("Export failed: Blob is null");
-      return;
+      throw new Error("Export failed: could not create image file. Try with a smaller image or different settings.");
     }
+
+    // Clean up canvas
+    exportCanvas.width = 1;
+    exportCanvas.height = 1;
+    exportCtx.clearRect(0, 0, 1, 1);
+
+    // Create download link
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = fileName;
@@ -414,15 +431,21 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
     // Delay revoke to ensure download starts
     setTimeout(() => {
       URL.revokeObjectURL(url);
       console.log('Object URL revoked:', url);
     }, 1000);
+
     console.log('Download triggered:', fileName);
   } catch (error) {
-    console.error("Export error:", error, { lutData });
-    alert("An error occurred during export. Please try again.");
+    console.error("Export error:", error);
+    alert(error.message || "An error occurred during export. Please try again.");
+  } finally {
+    // Restore button state
+    downloadBtn.innerHTML = originalText;
+    downloadBtn.disabled = false;
   }
 });
 
