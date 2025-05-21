@@ -581,7 +581,66 @@ function applyLUTToImage(pixels, lut) {
   }
 }
 
+function parseCubeLUT(lutText) {
+  const lines = lutText.split('\n');
+  let size = 33; // Default size
+  let values = [];
+  let readingData = false;
+  let domainMin = [0, 0, 0];
+  let domainMax = [1, 1, 1];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (trimmedLine === '' || trimmedLine.startsWith('#')) continue;
+    
+    if (trimmedLine.startsWith('LUT_3D_SIZE')) {
+      size = parseInt(trimmedLine.split(' ')[1]);
+      continue;
+    }
+
+    if (trimmedLine.startsWith('DOMAIN_MIN')) {
+      domainMin = trimmedLine.split(' ').slice(1).map(Number);
+      continue;
+    }
+
+    if (trimmedLine.startsWith('DOMAIN_MAX')) {
+      domainMax = trimmedLine.split(' ').slice(1).map(Number);
+      continue;
+    }
+    
+    if (!readingData && !trimmedLine.startsWith('TITLE') && !trimmedLine.startsWith('DOMAIN')) {
+      readingData = true;
+    }
+    
+    if (readingData) {
+      const rgb = trimmedLine.split(' ').map(Number).filter(n => !isNaN(n));
+      if (rgb.length === 3) {
+        // Normalize values based on domain
+        const normalizedRgb = rgb.map((val, i) => {
+          const range = domainMax[i] - domainMin[i];
+          return (val - domainMin[i]) / range;
+        });
+        values.push(...normalizedRgb);
+      }
+    }
+  }
+
+  // Validate LUT data
+  const expectedSize = size * size * size * 3;
+  if (values.length !== expectedSize) {
+    console.error(`Invalid LUT data: expected ${expectedSize} values but got ${values.length}`);
+    throw new Error("Invalid LUT data: incorrect number of values");
+  }
+
+  return { size, values };
+}
+
 function trilinearLUTLookup(lut, r, g, b) {
+  if (!lut || !lut.values || !lut.size) {
+    console.error("Invalid LUT:", lut);
+    return [r, g, b];
+  }
+
   const size = lut.size;
   const maxIndex = size - 1;
 
@@ -606,6 +665,10 @@ function trilinearLUTLookup(lut, r, g, b) {
   // Get values from LUT
   const getValue = (ri, gi, bi) => {
     const idx = (bi * size * size + gi * size + ri) * 3;
+    if (idx < 0 || idx + 2 >= lut.values.length) {
+      console.error(`Invalid LUT index: ${idx} for size ${size}`);
+      return [0, 0, 0];
+    }
     return [
       lut.values[idx],
       lut.values[idx + 1],
@@ -613,34 +676,39 @@ function trilinearLUTLookup(lut, r, g, b) {
     ];
   };
 
-  // Get all corner values
-  const c000 = getValue(r0, g0, b0);
-  const c001 = getValue(r0, g0, b1);
-  const c010 = getValue(r0, g1, b0);
-  const c011 = getValue(r0, g1, b1);
-  const c100 = getValue(r1, g0, b0);
-  const c101 = getValue(r1, g0, b1);
-  const c110 = getValue(r1, g1, b0);
-  const c111 = getValue(r1, g1, b1);
+  try {
+    // Get all corner values
+    const c000 = getValue(r0, g0, b0);
+    const c001 = getValue(r0, g0, b1);
+    const c010 = getValue(r0, g1, b0);
+    const c011 = getValue(r0, g1, b1);
+    const c100 = getValue(r1, g0, b0);
+    const c101 = getValue(r1, g0, b1);
+    const c110 = getValue(r1, g1, b0);
+    const c111 = getValue(r1, g1, b1);
 
-  // Perform trilinear interpolation
-  const result = [0, 0, 0];
-  for (let i = 0; i < 3; i++) {
-    // Interpolate along R axis
-    const c00 = c000[i] * (1 - dr) + c100[i] * dr;
-    const c01 = c001[i] * (1 - dr) + c101[i] * dr;
-    const c10 = c010[i] * (1 - dr) + c110[i] * dr;
-    const c11 = c011[i] * (1 - dr) + c111[i] * dr;
+    // Perform trilinear interpolation
+    const result = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      // Interpolate along R axis
+      const c00 = c000[i] * (1 - dr) + c100[i] * dr;
+      const c01 = c001[i] * (1 - dr) + c101[i] * dr;
+      const c10 = c010[i] * (1 - dr) + c110[i] * dr;
+      const c11 = c011[i] * (1 - dr) + c111[i] * dr;
 
-    // Interpolate along G axis
-    const c0 = c00 * (1 - dg) + c10 * dg;
-    const c1 = c01 * (1 - dg) + c11 * dg;
+      // Interpolate along G axis
+      const c0 = c00 * (1 - dg) + c10 * dg;
+      const c1 = c01 * (1 - dg) + c11 * dg;
 
-    // Final interpolation along B axis
-    result[i] = c0 * (1 - db) + c1 * db;
+      // Final interpolation along B axis
+      result[i] = c0 * (1 - db) + c1 * db;
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error in LUT lookup:", error);
+    return [r, g, b]; // Return original values on error
   }
-
-  return result;
 }
 
 // Nouvelle fonction de flou simplifiée
@@ -861,36 +929,6 @@ document.getElementById('filmSelect').addEventListener('change', async (e) => {
     console.error('Error loading LUT:', error);
   }
 });
-
-function parseCubeLUT(lutText) {
-  const lines = lutText.split('\n');
-  let size = 33; // Default size
-  let values = [];
-  let readingData = false;
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (trimmedLine === '' || trimmedLine.startsWith('#')) continue;
-    
-    if (trimmedLine.startsWith('LUT_3D_SIZE')) {
-      size = parseInt(trimmedLine.split(' ')[1]);
-      continue;
-    }
-    
-    if (!readingData && !trimmedLine.startsWith('TITLE') && !trimmedLine.startsWith('DOMAIN')) {
-      readingData = true;
-    }
-    
-    if (readingData) {
-      const rgb = trimmedLine.split(' ').map(Number).filter(n => !isNaN(n));
-      if (rgb.length === 3) {
-        values.push(...rgb);
-      }
-    }
-  }
-
-  return { size, values };
-}
 
 function boxBlur(data, width, height, radius) {
   const tempData = new Uint8ClampedArray(data);
