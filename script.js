@@ -225,14 +225,14 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply blur if enabled
-  if (blurAmount > 0) {
-    applyRadialBlur(ctx, width, height, blurAmount);
+  // Apply subtle film blur by default
+  if (DEFAULT_FILM_BLUR > 0) {
+    applyRadialBlur(ctx, width, height, DEFAULT_FILM_BLUR);
   }
 
-  // Apply grain if enabled
+  // Apply enhanced grain
   if (selectedISO > 0) {
-    const grainAmount = isMobile ? selectedISO * 0.8 : selectedISO;
+    const grainAmount = isMobile ? selectedISO * 0.9 : selectedISO; // Increased from 0.8
     addGrain(ctx, width, height, grainAmount);
   }
 }
@@ -416,8 +416,8 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     }
 
     // Apply blur if enabled with higher quality
-    if (blurAmount > 0) {
-      applyRadialBlur(exportCtx, exportWidth, exportHeight, blurAmount);
+    if (DEFAULT_FILM_BLUR > 0) {
+      applyRadialBlur(exportCtx, exportWidth, exportHeight, DEFAULT_FILM_BLUR);
     }
 
     // Apply grain with higher quality
@@ -477,7 +477,7 @@ let selectedISO = 100;
 let contrastAmount = 0;
 let exposureAmount = 0;
 let lutIntensity = 1.0;
-let blurAmount = 0; // Nouvelle variable pour le flou
+const DEFAULT_FILM_BLUR = 0.15; // Subtle film-like blur
 
 // Utiliser le slider ISO du HTML
 const isoSlider = document.getElementById('isoSlider');
@@ -492,10 +492,6 @@ const exposureValueSpan = document.getElementById('exposureValue');
 // Slider d'intensité
 const lutIntensitySlider = document.getElementById('lutIntensitySlider');
 const intensityValueSpan = document.getElementById('intensityValue');
-
-// Nouveau slider de flou
-const blurSlider = document.getElementById('blurSlider');
-const blurValueSpan = document.getElementById('blurValue');
 
 // Variables pour l'optimisation des performances
 let processingEffect = false;
@@ -529,12 +525,6 @@ lutIntensitySlider.addEventListener('input', createThrottledHandler(() => {
   if (fullResImage) applyEffects(true);
 }));
 
-blurSlider.addEventListener('input', createThrottledHandler(() => {
-  blurAmount = parseInt(blurSlider.value);
-  if (blurValueSpan) blurValueSpan.textContent = blurAmount + '%';
-  if (fullResImage) applyEffects(true);
-}));
-
 // Initialiser les valeurs affichées
 if (isoValueSpan) isoValueSpan.textContent = selectedISO;
 if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
@@ -545,32 +535,35 @@ if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 function addGrain(ctx, width, height, amount) {
   if (amount <= 0) return;
   
-  // Cap the maximum grain effect to what was previously seen at 30%
-  const maxGrainAmount = 30;
+  // Increase base grain intensity
+  const maxGrainAmount = 50; // Increased from 30
   const cappedAmount = Math.min(amount, maxGrainAmount);
-  const grainIntensity = (cappedAmount / 100) * 0.15; // Reduced multiplier to match previous 30% effect
+  const grainIntensity = (cappedAmount / 100) * 0.25; // Increased from 0.15
+  
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
-  // Generate noise pattern
+  // Generate noise pattern with more variation
   const noiseBuffer = new Float32Array(width * height);
   for (let i = 0; i < noiseBuffer.length; i++) {
-    noiseBuffer[i] = (Math.random() * 2 - 1) * grainIntensity;
+    // Add more variation to the noise
+    noiseBuffer[i] = (Math.random() * 2 - 1) * grainIntensity * (0.8 + Math.random() * 0.4);
   }
   
-  // Apply noise with luminance-based adjustment
+  // Apply noise with enhanced luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
-    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.3);
+    // Adjust noise based on luminance for more natural look
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.2); // Reduced luminance influence
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
-      // Use overlay blending for more natural grain
+      // Enhanced overlay blending for more pronounced grain
       let result;
       if (value < 0.5) {
-        result = 2 * value * (0.5 + noiseValue);
+        result = 2 * value * (0.5 + noiseValue * 1.2);
       } else {
-        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue));
+        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue * 1.2));
       }
       data[i + j] = Math.round(Math.max(0, Math.min(1, result)) * 255);
     }
@@ -782,8 +775,8 @@ const resetBtn = document.getElementById('resetBtn');
 if (resetBtn) {
   resetBtn.addEventListener('click', () => {
     // Réinitialiser les curseurs
-    isoSlider.value = 0;
-    selectedISO = 0;
+    isoSlider.value = 100; // Set to maximum
+    selectedISO = 100;
     if (isoValueSpan) isoValueSpan.textContent = selectedISO;
 
     contrastSlider.value = 0;
@@ -798,11 +791,6 @@ if (resetBtn) {
     lutIntensitySlider.value = 100;
     lutIntensity = 1.0;
     if (intensityValueSpan) intensityValueSpan.textContent = '100%';
-
-    // Réinitialiser le flou
-    blurSlider.value = 0;
-    blurAmount = 0;
-    if (blurValueSpan) blurValueSpan.textContent = '0%';
 
     // Réappliquer le LUT par défaut
     document.getElementById('filmSelect').value = 'kodak_portra_160';
