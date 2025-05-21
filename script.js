@@ -1051,3 +1051,22 @@ function applyRadialBlur(ctx, width, height, amount) {
   
   ctx.putImageData(imgData, 0, 0);
 }
+
+function applyContrast(value, factor) {
+  // Ensure value is between 0 and 1
+  value = Math.max(0, Math.min(1, value));
+  
+  // Apply contrast using a sigmoid-like curve
+  // factor > 0 increases contrast, factor < 0 decreases contrast
+  const center = 0.5;
+  const range = 0.5;
+  
+  // Normalize the value to -1 to 1 range
+  const normalized = (value - center) / range;
+  
+  // Apply contrast using a sigmoid-like curve
+  const contrasted = normalized * (1 + factor) / (1 + Math.abs(normalized) * factor);
+  
+  // Convert back to 0-1 range
+  return Math.max(0, Math.min(1, contrasted * range + center));
+}
