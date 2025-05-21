@@ -421,13 +421,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     }, 1000);
     console.log('Download triggered:', fileName);
   } catch (error) {
-    console.error("Export error:", error, {
-      lutData,
-      fullResImage,
-      exportCanvas,
-      exportWidth,
-      exportHeight
-    });
+    console.error("Export error:", error, { lutData });
     alert("An error occurred during export. Please try again.");
   }
 });
