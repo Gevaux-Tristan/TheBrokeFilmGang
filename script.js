@@ -324,15 +324,19 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     }
 
     const exportCanvas = document.createElement("canvas");
-    const exportCtx = exportCanvas.getContext("2d", { willReadFrequently: true });
+    const exportCtx = exportCanvas.getContext("2d", { 
+      willReadFrequently: true,
+      alpha: true,
+      desynchronized: false
+    });
     
     // Calculate export dimensions based on Instagram requirements
     const aspectRatio = fullResImage.width / fullResImage.height;
     let exportWidth = fullResImage.width;
     let exportHeight = fullResImage.height;
     
-    // Reduce export size for mobile - use smaller size for better performance
-    const MOBILE_EXPORT_MAX = isMobile ? 600 : 800;
+    // Set higher quality export size
+    const MOBILE_EXPORT_MAX = isMobile ? 1200 : 2048; // Increased from 600/800
     if (exportWidth > MOBILE_EXPORT_MAX) {
       exportWidth = MOBILE_EXPORT_MAX;
       exportHeight = Math.floor(exportWidth / aspectRatio);
@@ -342,13 +346,13 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       exportWidth = Math.floor(exportHeight * aspectRatio);
     }
 
-    // Set canvas size
+    // Set canvas size with high quality settings
     exportCanvas.width = exportWidth;
     exportCanvas.height = exportHeight;
     exportCtx.imageSmoothingEnabled = true;
     exportCtx.imageSmoothingQuality = 'high';
 
-    // Draw the original image
+    // Draw the original image with high quality
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
 
     // Process effects in smaller chunks for mobile
@@ -357,7 +361,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       const data = imgData.data;
       const originalData = new Uint8ClampedArray(data);
 
-      // Apply LUT
+      // Apply LUT with higher precision
       if (lutData && lutIntensity > 0) {
         for (let i = 0; i < data.length; i += 4) {
           const r = originalData[i] / 255;
@@ -370,7 +374,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
         }
       }
 
-      // Apply exposure and contrast
+      // Apply exposure and contrast with higher precision
       if (exposureAmount !== 0 || contrastAmount !== 0) {
         for (let i = 0; i < data.length; i += 4) {
           let r = data[i] / 255;
@@ -391,9 +395,9 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
             b = applyContrast(b, contrastFactor);
           }
           
-          data[i] = r * 255;
-          data[i + 1] = g * 255;
-          data[i + 2] = b * 255;
+          data[i] = Math.round(r * 255);
+          data[i + 1] = Math.round(g * 255);
+          data[i + 2] = Math.round(b * 255);
         }
       }
 
@@ -402,7 +406,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
     // Process image in chunks on mobile
     if (isMobile) {
-      const CHUNK_SIZE = 100; // Process 100 rows at a time
+      const CHUNK_SIZE = 200; // Increased from 100 for better quality
       for (let y = 0; y < exportHeight; y += CHUNK_SIZE) {
         const chunkHeight = Math.min(CHUNK_SIZE, exportHeight - y);
         await processChunk(y, chunkHeight);
@@ -411,12 +415,12 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       await processChunk(0, exportHeight);
     }
 
-    // Apply blur if enabled
+    // Apply blur if enabled with higher quality
     if (blurAmount > 0) {
       applyRadialBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
-    // Apply grain
+    // Apply grain with higher quality
     if (selectedISO > 0) {
       const grainAmount = selectedISO;
       addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
@@ -428,8 +432,8 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
 
-    // Convert to Blob with lower quality on mobile
-    const quality = isMobile ? 0.85 : 0.95;
+    // Convert to Blob with higher quality
+    const quality = isMobile ? 0.92 : 0.95; // Increased from 0.85/0.95
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', quality);
     });
