@@ -353,7 +353,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
         }
         exportCtx.putImageData(imgData, 0, 0);
       } catch (error) {
-        console.error("Error applying LUT during export:", error, lutData);
+        console.error("Error applying LUT during export:", error, error.message, error.stack, lutData);
         alert("An error occurred while applying the LUT. Please try a different LUT or reload the page.");
         return;
       }
