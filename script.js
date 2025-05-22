@@ -455,7 +455,7 @@ let selectedISO = 100;
 let contrastAmount = 0;
 let exposureAmount = 0;
 let lutIntensity = 1.0;
-const DEFAULT_FILM_BLUR = 1.5; // Increased from 1
+const DEFAULT_FILM_BLUR = 2.2; // Increased from 1.5 for more visible blur
 
 // Utiliser le slider ISO du HTML
 const isoSlider = document.getElementById('isoSlider');
@@ -476,11 +476,29 @@ let processingEffect = false;
 let pendingEffect = false;
 let lastEffectTime = 0;
 
-// Appliquer les gestionnaires optimisés aux curseurs
+// Update grain levels
+const GRAIN_LEVELS = {
+  LIGHT: { amount: 30, intensity: 0.2 },
+  MEDIUM: { amount: 50, intensity: 0.3 },
+  STRONG: { amount: 70, intensity: 0.4 }
+};
+
+// Update ISO slider event listener
 isoSlider.addEventListener('input', createThrottledHandler(() => {
-  selectedISO = parseInt(isoSlider.value);
+  const level = parseInt(isoSlider.value);
+  selectedISO = level;
   if (isoValueSpan) {
-    isoValueSpan.textContent = selectedISO + '%';
+    switch(level) {
+      case 0:
+        isoValueSpan.textContent = 'Light';
+        break;
+      case 1:
+        isoValueSpan.textContent = 'Medium';
+        break;
+      case 2:
+        isoValueSpan.textContent = 'Strong';
+        break;
+    }
   }
   if (fullResImage) applyEffects(true);
 }));
@@ -509,14 +527,13 @@ if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
 if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
 if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 
-// Optimize grain generation for more photographic look
-function addGrain(ctx, width, height, amount) {
-  if (amount <= 0) return;
+// Update grain generation function
+function addGrain(ctx, width, height, level) {
+  if (level < 0) return;
   
-  // Increase base grain intensity and size
-  const maxGrainAmount = 70; // Increased from 50
-  const cappedAmount = Math.min(amount, maxGrainAmount);
-  const grainIntensity = (cappedAmount / 100) * 0.35; // Increased from 0.25
+  const grainSettings = GRAIN_LEVELS[Object.keys(GRAIN_LEVELS)[level]];
+  const maxGrainAmount = grainSettings.amount;
+  const grainIntensity = grainSettings.intensity;
   
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
@@ -525,7 +542,9 @@ function addGrain(ctx, width, height, amount) {
   const noiseBuffer = new Float32Array(width * height);
   for (let i = 0; i < noiseBuffer.length; i++) {
     // Create larger grain clusters
-    const clusterSize = 2 + Math.random() * 2; // Larger grain clusters
+    const clusterSize = level === 2 ? 3 + Math.random() * 2 : // Strong grain: larger clusters
+                       level === 1 ? 2 + Math.random() * 1.5 : // Medium grain: medium clusters
+                       1 + Math.random(); // Light grain: smaller clusters
     const baseNoise = (Math.random() * 2 - 1) * grainIntensity;
     noiseBuffer[i] = baseNoise * (0.8 + Math.random() * 0.4) * clusterSize;
   }
@@ -534,16 +553,19 @@ function addGrain(ctx, width, height, amount) {
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
     // Adjust noise based on luminance for more natural look
-    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.15); // Reduced luminance influence
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.15);
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
       // Enhanced overlay blending for more pronounced grain
       let result;
+      const grainMultiplier = level === 2 ? 1.6 : // Strong grain: more pronounced
+                             level === 1 ? 1.4 : // Medium grain: moderate
+                             1.2; // Light grain: subtle
       if (value < 0.5) {
-        result = 2 * value * (0.5 + noiseValue * 1.4); // Increased grain effect
+        result = 2 * value * (0.5 + noiseValue * grainMultiplier);
       } else {
-        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue * 1.4));
+        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue * grainMultiplier));
       }
       data[i + j] = Math.round(Math.max(0, Math.min(1, result)) * 255);
     }
@@ -755,9 +777,9 @@ const resetBtn = document.getElementById('resetBtn');
 if (resetBtn) {
   resetBtn.addEventListener('click', () => {
     // Réinitialiser les curseurs
-    isoSlider.value = 100; // Set to maximum
-    selectedISO = 100;
-    if (isoValueSpan) isoValueSpan.textContent = selectedISO;
+    isoSlider.value = 0;
+    selectedISO = 0;
+    if (isoValueSpan) isoValueSpan.textContent = 'Light';
 
     contrastSlider.value = 0;
     contrastAmount = 0;
@@ -979,13 +1001,13 @@ function applyRadialBlur(ctx, width, height, amount) {
   const centerX = width / 2;
   const centerY = height / 2;
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
-  const blurStrength = amount * 0.04; // Increased from 0.03
+  const blurStrength = amount * 0.05; // Increased from 0.04
   
   // Optimize for mobile
   const isMobileDevice = isMobile;
-  const maxRadius = isMobileDevice ? 8 : 10; // Increased from 6/8
-  const sampleCount = isMobileDevice ? 10 : 14; // Increased from 8/12
-  const blendFactor = isMobileDevice ? 0.45 : 0.55; // Adjusted for stronger effect
+  const maxRadius = isMobileDevice ? 10 : 12; // Increased from 8/10
+  const sampleCount = isMobileDevice ? 12 : 16; // Increased from 10/14
+  const blendFactor = isMobileDevice ? 0.4 : 0.5; // Adjusted for stronger effect
   
   // Pre-calculate angles for better performance
   const angleStep = Math.PI * 2 / sampleCount;
