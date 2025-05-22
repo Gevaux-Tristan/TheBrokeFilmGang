@@ -133,10 +133,10 @@ const lutCache = new Map();
 
 // Détection mobile
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const MOBILE_MAX_WIDTH = 480; // Reduced from 640
-const MOBILE_MAX_HEIGHT = 480;
-const DESKTOP_MAX_WIDTH = 1200;
-const DESKTOP_MAX_HEIGHT = 1200;
+const MOBILE_MAX_WIDTH = 1200; // Increased from 480
+const MOBILE_MAX_HEIGHT = 1200; // Increased from 480
+const DESKTOP_MAX_WIDTH = 2048; // Increased from 1200
+const DESKTOP_MAX_HEIGHT = 2048; // Increased from 1200
 
 // Instagram recommended sizes:
 // Stories: 1080x1920
@@ -199,27 +199,30 @@ function processImageEffects(ctx, width, height, isExport = false) {
     }
   }
 
-  // Apply exposure and contrast
+  // Apply exposure and contrast with higher precision
   if (exposureAmount !== 0 || contrastAmount !== 0) {
-    const exposureFactor = Math.pow(2, exposureAmount);
-    const contrastFactor = contrastAmount / 100;
-    
     for (let i = 0; i < data.length; i += 4) {
-      for (let j = 0; j < 3; j++) {
-        let value = data[i + j] / 255;
-        
-        if (exposureAmount !== 0) {
-          value = value * exposureFactor;
-        }
-        
-        if (contrastAmount !== 0) {
-          value = value - 0.5;
-          value = value * (1 + contrastFactor);
-          value = value + 0.5;
-        }
-        
-        data[i + j] = Math.round(Math.max(0, Math.min(1, value)) * 255);
+      let r = data[i] / 255;
+      let g = data[i + 1] / 255;
+      let b = data[i + 2] / 255;
+      
+      if (exposureAmount !== 0) {
+        const exposureFactor = Math.pow(2, exposureAmount);
+        r = Math.min(1, Math.max(0, r * exposureFactor));
+        g = Math.min(1, Math.max(0, g * exposureFactor));
+        b = Math.min(1, Math.max(0, b * exposureFactor));
       }
+      
+      if (contrastAmount !== 0) {
+        const contrastFactor = contrastAmount / 100;
+        r = applyContrast(r, contrastFactor);
+        g = applyContrast(g, contrastFactor);
+        b = applyContrast(b, contrastFactor);
+      }
+      
+      data[i] = Math.round(r * 255);
+      data[i + 1] = Math.round(g * 255);
+      data[i + 2] = Math.round(b * 255);
     }
   }
 
@@ -232,7 +235,7 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   // Apply enhanced grain
   if (selectedISO > 0) {
-    const grainAmount = isMobile ? selectedISO * 0.9 : selectedISO; // Increased from 0.8
+    const grainAmount = selectedISO; // Removed mobile reduction for consistency
     addGrain(ctx, width, height, grainAmount);
   }
 }
@@ -272,6 +275,10 @@ function applyEffects(immediate = false) {
   canvas.width = newWidth;
   canvas.height = newHeight;
   
+  // Enable high quality settings for preview
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  
   ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
   
   processImageEffects(ctx, newWidth, newHeight, false);
@@ -287,9 +294,6 @@ function applyEffects(immediate = false) {
 document.getElementById("downloadBtn").addEventListener("click", async () => {
   if (!fullResImage) return;
 
-  // Debug: Log device type
-  console.log('Export triggered. isMobile:', isMobile);
-
   // Show loading state
   const downloadBtn = document.getElementById("downloadBtn");
   const originalText = downloadBtn.innerHTML;
@@ -297,32 +301,6 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
   downloadBtn.disabled = true;
 
   try {
-    // On mobile, force LUT re-parse if possible
-    if (isMobile) {
-      try {
-        const selectedFilm = document.getElementById('filmSelect').value;
-        if (selectedFilm) {
-          const response = await fetch(`luts/${selectedFilm}.cube`);
-          if (response.ok) {
-            const lutText = await response.text();
-            lutData = parseCubeLUT(lutText);
-            console.log('LUT re-parsed for export on mobile:', lutData);
-          } else {
-            console.warn('Failed to re-fetch LUT for export:', response.statusText);
-          }
-        }
-      } catch (err) {
-        console.error('Error re-parsing LUT for mobile export:', err);
-      }
-    }
-
-    // Check if LUT is loaded if a LUT is selected
-    if (document.getElementById('filmSelect').value && lutIntensity > 0) {
-      if (!lutData || !lutData.values || !lutData.size) {
-        throw new Error("The selected LUT is not fully loaded yet. Please wait a moment and try again.");
-      }
-    }
-
     const exportCanvas = document.createElement("canvas");
     const exportCtx = exportCanvas.getContext("2d", { 
       willReadFrequently: true,
@@ -335,14 +313,14 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     let exportWidth = fullResImage.width;
     let exportHeight = fullResImage.height;
     
-    // Set higher quality export size
-    const MOBILE_EXPORT_MAX = isMobile ? 1200 : 2048; // Increased from 600/800
-    if (exportWidth > MOBILE_EXPORT_MAX) {
-      exportWidth = MOBILE_EXPORT_MAX;
+    // Set maximum dimensions to maintain file size under 2MB
+    const MAX_EXPORT_SIZE = isMobile ? 1200 : 2048;
+    if (exportWidth > MAX_EXPORT_SIZE) {
+      exportWidth = MAX_EXPORT_SIZE;
       exportHeight = Math.floor(exportWidth / aspectRatio);
     }
-    if (exportHeight > MOBILE_EXPORT_MAX) {
-      exportHeight = MOBILE_EXPORT_MAX;
+    if (exportHeight > MAX_EXPORT_SIZE) {
+      exportHeight = MAX_EXPORT_SIZE;
       exportWidth = Math.floor(exportHeight * aspectRatio);
     }
 
@@ -355,7 +333,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     // Draw the original image with high quality
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
 
-    // Process effects in smaller chunks for mobile
+    // Process effects in chunks for better performance
     const processChunk = async (startY, chunkHeight) => {
       const imgData = exportCtx.getImageData(0, startY, exportWidth, chunkHeight);
       const data = imgData.data;
@@ -433,7 +411,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
 
     // Convert to Blob with higher quality
-    const quality = isMobile ? 0.92 : 0.95; // Increased from 0.85/0.95
+    const quality = isMobile ? 0.92 : 0.95;
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', quality);
     });
@@ -477,7 +455,7 @@ let selectedISO = 100;
 let contrastAmount = 0;
 let exposureAmount = 0;
 let lutIntensity = 1.0;
-const DEFAULT_FILM_BLUR = 0.15; // Subtle film-like blur
+const DEFAULT_FILM_BLUR = 1; // Increased from 0.15 to 1 for stronger film-like blur
 
 // Utiliser le slider ISO du HTML
 const isoSlider = document.getElementById('isoSlider');
