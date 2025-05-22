@@ -133,10 +133,10 @@ const lutCache = new Map();
 
 // Détection mobile
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const MOBILE_MAX_WIDTH = 1200; // Increased from 480
-const MOBILE_MAX_HEIGHT = 1200; // Increased from 480
-const DESKTOP_MAX_WIDTH = 2048; // Increased from 1200
-const DESKTOP_MAX_HEIGHT = 2048; // Increased from 1200
+const MOBILE_MAX_WIDTH = 1080; // Reduced from 1200 for better performance
+const MOBILE_MAX_HEIGHT = 1080;
+const DESKTOP_MAX_WIDTH = 2048;
+const DESKTOP_MAX_HEIGHT = 2048;
 
 // Instagram recommended sizes:
 // Stories: 1080x1920
@@ -275,9 +275,9 @@ function applyEffects(immediate = false) {
   canvas.width = newWidth;
   canvas.height = newHeight;
   
-  // Enable high quality settings for preview
+  // Set preview quality based on device
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = isMobile ? 'medium' : 'high';
   
   ctx.drawImage(fullResImage, 0, 0, newWidth, newHeight);
   
@@ -314,7 +314,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     let exportHeight = fullResImage.height;
     
     // Set maximum dimensions to maintain file size under 2MB
-    const MAX_EXPORT_SIZE = isMobile ? 1200 : 2048;
+    const MAX_EXPORT_SIZE = isMobile ? 1080 : 2048; // Reduced mobile size for better performance
     if (exportWidth > MAX_EXPORT_SIZE) {
       exportWidth = MAX_EXPORT_SIZE;
       exportHeight = Math.floor(exportWidth / aspectRatio);
@@ -410,8 +410,8 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const dateStr = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
 
-    // Convert to Blob with higher quality
-    const quality = isMobile ? 0.92 : 0.95;
+    // Convert to Blob with adjusted quality
+    const quality = isMobile ? 0.85 : 0.95; // Reduced mobile quality for better performance
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', quality);
     });
@@ -455,7 +455,7 @@ let selectedISO = 100;
 let contrastAmount = 0;
 let exposureAmount = 0;
 let lutIntensity = 1.0;
-const DEFAULT_FILM_BLUR = 1; // Increased from 0.15 to 1 for stronger film-like blur
+const DEFAULT_FILM_BLUR = 1.5; // Increased from 1
 
 // Utiliser le slider ISO du HTML
 const isoSlider = document.getElementById('isoSlider');
@@ -509,39 +509,41 @@ if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
 if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
 if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 
-// Optimize grain generation
+// Optimize grain generation for more photographic look
 function addGrain(ctx, width, height, amount) {
   if (amount <= 0) return;
   
-  // Increase base grain intensity
-  const maxGrainAmount = 50; // Increased from 30
+  // Increase base grain intensity and size
+  const maxGrainAmount = 70; // Increased from 50
   const cappedAmount = Math.min(amount, maxGrainAmount);
-  const grainIntensity = (cappedAmount / 100) * 0.25; // Increased from 0.15
+  const grainIntensity = (cappedAmount / 100) * 0.35; // Increased from 0.25
   
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
-  // Generate noise pattern with more variation
+  // Generate larger grain pattern
   const noiseBuffer = new Float32Array(width * height);
   for (let i = 0; i < noiseBuffer.length; i++) {
-    // Add more variation to the noise
-    noiseBuffer[i] = (Math.random() * 2 - 1) * grainIntensity * (0.8 + Math.random() * 0.4);
+    // Create larger grain clusters
+    const clusterSize = 2 + Math.random() * 2; // Larger grain clusters
+    const baseNoise = (Math.random() * 2 - 1) * grainIntensity;
+    noiseBuffer[i] = baseNoise * (0.8 + Math.random() * 0.4) * clusterSize;
   }
   
   // Apply noise with enhanced luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
     // Adjust noise based on luminance for more natural look
-    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.2); // Reduced luminance influence
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.15); // Reduced luminance influence
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
       // Enhanced overlay blending for more pronounced grain
       let result;
       if (value < 0.5) {
-        result = 2 * value * (0.5 + noiseValue * 1.2);
+        result = 2 * value * (0.5 + noiseValue * 1.4); // Increased grain effect
       } else {
-        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue * 1.2));
+        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue * 1.4));
       }
       data[i + j] = Math.round(Math.max(0, Math.min(1, result)) * 255);
     }
@@ -977,13 +979,13 @@ function applyRadialBlur(ctx, width, height, amount) {
   const centerX = width / 2;
   const centerY = height / 2;
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
-  const blurStrength = amount * 0.03;
+  const blurStrength = amount * 0.04; // Increased from 0.03
   
   // Optimize for mobile
   const isMobileDevice = isMobile;
-  const maxRadius = isMobileDevice ? 6 : 8;
-  const sampleCount = isMobileDevice ? 8 : 12;
-  const blendFactor = isMobileDevice ? 0.5 : 0.6;
+  const maxRadius = isMobileDevice ? 8 : 10; // Increased from 6/8
+  const sampleCount = isMobileDevice ? 10 : 14; // Increased from 8/12
+  const blendFactor = isMobileDevice ? 0.45 : 0.55; // Adjusted for stronger effect
   
   // Pre-calculate angles for better performance
   const angleStep = Math.PI * 2 / sampleCount;
