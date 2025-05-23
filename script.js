@@ -476,11 +476,11 @@ let processingEffect = false;
 let pendingEffect = false;
 let lastEffectTime = 0;
 
-// Update grain levels with more subtle values
+// Update grain levels with even more subtle values
 const GRAIN_LEVELS = {
-  LIGHT: { amount: 20, intensity: 0.12 },
-  MEDIUM: { amount: 35, intensity: 0.18 },
-  STRONG: { amount: 50, intensity: 0.25 }
+  LIGHT: { amount: 15, intensity: 0.08 },
+  MEDIUM: { amount: 25, intensity: 0.12 },
+  STRONG: { amount: 35, intensity: 0.18 }
 };
 
 // Update ISO slider event listener
@@ -542,26 +542,26 @@ function addGrain(ctx, width, height, level) {
   const noiseBuffer = new Float32Array(width * height);
   for (let i = 0; i < noiseBuffer.length; i++) {
     // Create more subtle grain clusters
-    const clusterSize = level === 2 ? 1.5 + Math.random() : // Strong grain: medium clusters
-                       level === 1 ? 1 + Math.random() * 0.8 : // Medium grain: smaller clusters
-                       0.8 + Math.random() * 0.5; // Light grain: very small clusters
+    const clusterSize = level === 2 ? 1.2 + Math.random() * 0.8 : // Strong grain: small clusters
+                       level === 1 ? 0.8 + Math.random() * 0.6 : // Medium grain: very small clusters
+                       0.6 + Math.random() * 0.4; // Light grain: tiny clusters
     const baseNoise = (Math.random() * 2 - 1) * grainIntensity;
-    noiseBuffer[i] = baseNoise * (0.7 + Math.random() * 0.3) * clusterSize;
+    noiseBuffer[i] = baseNoise * (0.6 + Math.random() * 0.2) * clusterSize;
   }
   
   // Apply noise with enhanced luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
     // Adjust noise based on luminance for more natural look
-    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.2); // Increased luminance influence for more natural look
+    const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.25); // Increased luminance influence for more natural look
     
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
       // More subtle overlay blending
       let result;
-      const grainMultiplier = level === 2 ? 1.2 : // Strong grain: moderate
-                             level === 1 ? 1.1 : // Medium grain: subtle
-                             1.05; // Light grain: very subtle
+      const grainMultiplier = level === 2 ? 1.15 : // Strong grain: subtle
+                             level === 1 ? 1.08 : // Medium grain: very subtle
+                             1.03; // Light grain: barely noticeable
       if (value < 0.5) {
         result = 2 * value * (0.5 + noiseValue * grainMultiplier);
       } else {
