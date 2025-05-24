@@ -553,10 +553,10 @@ function addGrain(ctx, width, height, level) {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   
-  // Generate more subtle grain pattern
+  // Generate grain pattern
   const noiseBuffer = new Float32Array(width * height);
   for (let i = 0; i < noiseBuffer.length; i++) {
-    // Create more subtle grain clusters
+    // Create grain clusters
     const clusterSize = level === 2 ? 1.2 + Math.random() * 0.8 : // Strong grain: small clusters
                        level === 1 ? 0.8 + Math.random() * 0.6 : // Medium grain: very small clusters
                        0.6 + Math.random() * 0.4; // Light grain: tiny clusters
@@ -568,24 +568,24 @@ function addGrain(ctx, width, height, level) {
   const grainData = tempCtx.createImageData(width, height);
   const grainPixels = grainData.data;
   
-  // Apply noise with enhanced luminance-based adjustment
+  // Apply noise with luminance-based adjustment
   for (let i = 0; i < data.length; i += 4) {
     const luminance = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) / 255;
     // Adjust noise based on luminance for more natural look
     const noiseValue = noiseBuffer[i >> 2] * (1 - luminance * 0.25);
     
+    // Apply grain without affecting brightness
     for (let j = 0; j < 3; j++) {
       const value = data[i + j] / 255;
-      // More subtle overlay blending
-      let result;
-      const grainMultiplier = level === 2 ? 1.15 : // Strong grain: subtle
-                             level === 1 ? 1.08 : // Medium grain: very subtle
-                             1.03; // Light grain: barely noticeable
-      if (value < 0.5) {
-        result = 2 * value * (0.5 + noiseValue * grainMultiplier);
-      } else {
-        result = 1 - 2 * (1 - value) * (1 - (0.5 + noiseValue * grainMultiplier));
-      }
+      const grainMultiplier = level === 2 ? 1.15 : // Strong grain
+                             level === 1 ? 1.08 : // Medium grain
+                             1.03; // Light grain
+      
+      // Apply grain while preserving original brightness
+      const grainEffect = noiseValue * grainMultiplier;
+      const result = value + grainEffect;
+      
+      // Ensure values stay within valid range
       grainPixels[i + j] = Math.round(Math.max(0, Math.min(1, result)) * 255);
     }
     grainPixels[i + 3] = 255; // Full opacity for grain layer
@@ -605,9 +605,9 @@ function addGrain(ctx, width, height, level) {
   boxBlur(blurData.data, width, height, blurRadius);
   tempCtx.putImageData(blurData, 0, 0);
   
-  // Blend the blurred grain with the original image
+  // Blend the grain with the original image using 'overlay' mode
   ctx.globalCompositeOperation = 'overlay';
-  ctx.globalAlpha = 0.8; // Slightly reduce the intensity of the blended grain
+  ctx.globalAlpha = 0.7; // Slightly reduce the intensity of the blended grain
   ctx.drawImage(tempCanvas, 0, 0);
   
   // Reset composite operation and alpha
