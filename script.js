@@ -386,9 +386,9 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
       await processChunk(0, exportHeight);
     }
 
-    // Apply blur if enabled with higher quality
-    if (DEFAULT_FILM_BLUR > 0) {
-      applyRadialBlur(exportCtx, exportWidth, exportHeight, DEFAULT_FILM_BLUR);
+    // Apply lens blur if enabled
+    if (blurAmount > 0) {
+      applyLensBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
     // Apply grain with higher quality
