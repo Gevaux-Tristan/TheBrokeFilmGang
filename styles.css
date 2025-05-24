@@ -739,6 +739,7 @@ option {
   user-select: none;
   font-family: 'Inter', sans-serif;
   outline: none;
+  z-index: 9999;
 }
 .custom-dropdown-selected {
   background: #131AF9;
@@ -768,7 +769,7 @@ option {
   color: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(19,26,249,0.18);
-  z-index: 100;
+  z-index: 10000;
   max-height: 320px;
   overflow-y: auto;
   margin-top: 6px;
