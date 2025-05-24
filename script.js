@@ -1154,46 +1154,32 @@ function applyLensBlur(ctx, width, height, amount) {
   const list = dropdown.querySelector('.custom-dropdown-list');
   const hiddenInput = dropdown.querySelector('input[type="hidden"]');
   let isOpen = false;
-  let originalParent = dropdown;
-  let originalNextSibling = list.nextSibling;
   let ignoreOutsideClick = false;
   let ignoreScrollResize = false;
 
   // Helper: close dropdown
   function closeDropdown() {
-    console.log('Dropdown: closeDropdown called');
-    if (list.parentNode !== dropdown) {
-      // Move back to original parent (append if no next sibling)
-      if (originalNextSibling && originalNextSibling.parentNode === dropdown) {
-        dropdown.insertBefore(list, originalNextSibling);
-      } else {
-        dropdown.appendChild(list);
-      }
-      list.style.position = '';
-      list.style.left = '';
-      list.style.top = '';
-      list.style.width = '';
-      list.style.zIndex = '';
-      list.style.marginTop = '';
-    }
     list.style.display = 'none';
+    list.style.position = '';
+    list.style.left = '';
+    list.style.top = '';
+    list.style.width = '';
+    list.style.zIndex = '';
+    list.style.marginTop = '';
     dropdown.classList.remove('open');
     isOpen = false;
     ignoreOutsideClick = false;
     ignoreScrollResize = false;
   }
 
-  // Helper: open dropdown (always downwards, portal to body)
+  // Helper: open dropdown (always downwards, fixed position)
   function openDropdown() {
-    console.log('Dropdown: openDropdown called');
     // Get bounding rect of dropdown
     const rect = dropdown.getBoundingClientRect();
-    // Move list to body
-    document.body.appendChild(list);
     list.style.display = 'block';
-    list.style.position = 'absolute';
+    list.style.position = 'fixed';
     list.style.left = rect.left + 'px';
-    list.style.top = (rect.bottom + window.scrollY) + 'px';
+    list.style.top = (rect.bottom) + 'px';
     list.style.width = rect.width + 'px';
     list.style.zIndex = '10002';
     list.style.marginTop = '0';
@@ -1207,7 +1193,6 @@ function applyLensBlur(ctx, width, height, amount) {
 
   // Toggle dropdown
   selected.addEventListener('click', function(e) {
-    console.log('Dropdown: selected clicked');
     e.stopPropagation();
     if (isOpen) {
       closeDropdown();
@@ -1243,14 +1228,11 @@ function applyLensBlur(ctx, width, height, amount) {
 
   // Close on outside click or scroll
   document.addEventListener('click', function(e) {
-    if (ignoreOutsideClick) { console.log('Dropdown: ignoring outside click'); return; }
-    if (!dropdown.contains(e.target) && list.parentNode === document.body && !list.contains(e.target)) {
-      console.log('Dropdown: outside click detected, closing');
-      closeDropdown();
-    }
+    if (ignoreOutsideClick) return;
+    if (!dropdown.contains(e.target) && !list.contains(e.target)) closeDropdown();
   });
-  window.addEventListener('scroll', function() { if (isOpen && !ignoreScrollResize) { console.log('Dropdown: scroll detected, closing'); closeDropdown(); } }, true);
-  window.addEventListener('resize', function() { if (isOpen && !ignoreScrollResize) { console.log('Dropdown: resize detected, closing'); closeDropdown(); } });
+  window.addEventListener('scroll', function() { if (isOpen && !ignoreScrollResize) closeDropdown(); }, true);
+  window.addEventListener('resize', function() { if (isOpen && !ignoreScrollResize) closeDropdown(); });
 
   // Update LUT when hidden input changes
   hiddenInput.addEventListener('change', function(e) {
