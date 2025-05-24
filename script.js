@@ -1158,26 +1158,15 @@ function applyLensBlur(ctx, width, height, amount) {
   // Helper: close dropdown
   function closeDropdown() {
     list.style.display = 'none';
-    dropdown.classList.remove('open', 'open-up');
+    dropdown.classList.remove('open');
     isOpen = false;
   }
 
-  // Helper: open dropdown (upwards if near bottom)
+  // Helper: open dropdown (always downwards)
   function openDropdown() {
-    // Check if there's enough space below, else open upwards
-    const rect = dropdown.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
     list.style.display = 'block';
-    if (spaceBelow < 300 && spaceAbove > spaceBelow) {
-      dropdown.classList.add('open-up');
-      list.style.bottom = '100%';
-      list.style.top = 'auto';
-    } else {
-      dropdown.classList.remove('open-up');
-      list.style.top = '100%';
-      list.style.bottom = 'auto';
-    }
+    list.style.top = '100%';
+    list.style.bottom = 'auto';
     dropdown.classList.add('open');
     isOpen = true;
   }

@@ -776,19 +776,8 @@ option {
   padding: 0;
   animation: dropdown-fade-in 0.18s;
 }
-.custom-dropdown.open-up .custom-dropdown-list {
-  top: auto;
-  bottom: 100%;
-  margin-top: 0;
-  margin-bottom: 6px;
-  animation: dropdown-fade-in-up 0.18s;
-}
 @keyframes dropdown-fade-in {
   from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes dropdown-fade-in-up {
-  from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .custom-dropdown-optgroup {
@@ -822,8 +811,7 @@ option {
   background: #0d1280;
   color: #fff;
 }
-.custom-dropdown.open .custom-dropdown-list,
-.custom-dropdown.open-up .custom-dropdown-list {
+.custom-dropdown.open .custom-dropdown-list {
   display: block !important;
 }
 
