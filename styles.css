@@ -742,14 +742,14 @@ option {
   z-index: 9999;
 }
 .custom-dropdown-selected {
-  background: #131AF9;
-  color: #fff;
+  background: #fff;
+  color: #131AF9;
   padding: 14px 16px;
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
-  border: 2px solid #131AF9;
+  border: 3px solid #131AF9;
   transition: box-shadow 0.15s;
   box-shadow: 0 2px 8px rgba(19,26,249,0.08);
   display: flex;
@@ -758,22 +758,22 @@ option {
 }
 .custom-dropdown.open .custom-dropdown-selected,
 .custom-dropdown:focus .custom-dropdown-selected {
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.18);
+  box-shadow: 0 0 0 2px rgba(19,26,249,0.18);
 }
 .custom-dropdown-list {
   position: absolute;
   left: 0;
   right: 0;
   top: 100%;
-  background: #131AF9;
-  color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(19,26,249,0.18);
+  background: #fff;
+  color: #131AF9;
+  border-radius: 0;
+  box-shadow: 0 8px 32px rgba(19,26,249,0.08);
   z-index: 10000;
   max-height: 320px;
   overflow-y: auto;
   margin-top: 6px;
-  border: 2px solid #131AF9;
+  border: 3px solid #131AF9;
   padding: 0;
   animation: dropdown-fade-in 0.18s;
 }
@@ -789,28 +789,30 @@ option {
   padding: 10px 16px 6px 16px;
   font-size: 0.98rem;
   font-weight: 700;
-  color: #fff;
+  color: #131AF9;
   opacity: 0.85;
   letter-spacing: 0.01em;
 }
 .custom-dropdown-option {
   padding: 12px 16px;
   font-size: 1.05rem;
-  color: #fff;
+  color: #131AF9;
   cursor: pointer;
   transition: background 0.13s, color 0.13s;
-  border-bottom: 1px solid #fff;
+  border-bottom: 1px solid #131AF9;
+  border-radius: 0;
+  background: #fff;
 }
 .custom-dropdown-option:last-child {
   border-bottom: none;
 }
 .custom-dropdown-optgroup:not(:last-child) .custom-dropdown-option:last-child {
-  border-bottom: 2px solid #fff;
+  border-bottom: 2px solid #131AF9;
 }
 .custom-dropdown-option:hover,
 .custom-dropdown-option:focus {
-  background: #0d1280;
-  color: #fff;
+  background: #e6eaff;
+  color: #131AF9;
 }
 .custom-dropdown.open .custom-dropdown-list {
   display: block !important;
