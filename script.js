@@ -176,66 +176,38 @@ function createThrottledHandler(callback) {
 function processImageEffects(ctx, width, height, isExport = false) {
   // Get image data for processing
   const imgData = ctx.getImageData(0, 0, width, height);
-  const data = imgData.data;
-  const originalData = new Uint8ClampedArray(data);
+  const pixels = imgData.data;
 
-  // Apply LUT first if present and intensity > 0
-  if (lutData && lutIntensity > 0) {
-    try {
-      for (let i = 0; i < data.length; i += 4) {
-        const r = originalData[i] / 255;
-        const g = originalData[i + 1] / 255;
-        const b = originalData[i + 2] / 255;
-
-        const newColor = trilinearLUTLookup(lutData, r, g, b);
-        
-        data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
-        data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
-        data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
-      }
-    } catch (error) {
-      console.error("Error applying LUT:", error);
-      data.set(originalData);
+  // Apply contrast
+  if (contrastAmount !== 0) {
+    const factor = (259 * (contrastAmount + 255)) / (255 * (259 - contrastAmount));
+    for (let i = 0; i < pixels.length; i += 4) {
+      pixels[i] = factor * (pixels[i] - 128) + 128;
+      pixels[i + 1] = factor * (pixels[i + 1] - 128) + 128;
+      pixels[i + 2] = factor * (pixels[i + 2] - 128) + 128;
     }
   }
 
-  // Apply exposure and contrast with higher precision
-  if (exposureAmount !== 0 || contrastAmount !== 0) {
-    for (let i = 0; i < data.length; i += 4) {
-      let r = data[i] / 255;
-      let g = data[i + 1] / 255;
-      let b = data[i + 2] / 255;
-      
-      if (exposureAmount !== 0) {
-        const exposureFactor = Math.pow(2, exposureAmount);
-        r = Math.min(1, Math.max(0, r * exposureFactor));
-        g = Math.min(1, Math.max(0, g * exposureFactor));
-        b = Math.min(1, Math.max(0, b * exposureFactor));
-      }
-      
-      if (contrastAmount !== 0) {
-        const contrastFactor = contrastAmount / 100;
-        r = applyContrast(r, contrastFactor);
-        g = applyContrast(g, contrastFactor);
-        b = applyContrast(b, contrastFactor);
-      }
-      
-      data[i] = Math.round(r * 255);
-      data[i + 1] = Math.round(g * 255);
-      data[i + 2] = Math.round(b * 255);
+  // Apply exposure
+  if (exposureAmount !== 0) {
+    const factor = Math.pow(2, exposureAmount);
+    for (let i = 0; i < pixels.length; i += 4) {
+      pixels[i] = Math.min(255, pixels[i] * factor);
+      pixels[i + 1] = Math.min(255, pixels[i + 1] * factor);
+      pixels[i + 2] = Math.min(255, pixels[i + 2] * factor);
     }
   }
 
   ctx.putImageData(imgData, 0, 0);
 
-  // Apply subtle film blur by default
-  if (DEFAULT_FILM_BLUR > 0) {
-    applyRadialBlur(ctx, width, height, DEFAULT_FILM_BLUR);
+  // Apply lens blur
+  if (blurAmount > 0) {
+    applyLensBlur(ctx, width, height, blurAmount);
   }
 
   // Apply enhanced grain
   if (selectedISO > 0) {
-    const grainAmount = selectedISO; // Removed mobile reduction for consistency
+    const grainAmount = selectedISO;
     addGrain(ctx, width, height, grainAmount);
   }
 }
@@ -455,6 +427,7 @@ let selectedISO = 100;
 let contrastAmount = 0;
 let exposureAmount = 0;
 let lutIntensity = 1.0;
+let blurAmount = 0;
 const DEFAULT_FILM_BLUR = 2.2; // Increased from 1.5 for more visible blur
 
 // Utiliser le slider ISO du HTML
@@ -470,6 +443,10 @@ const exposureValueSpan = document.getElementById('exposureValue');
 // Slider d'intensité
 const lutIntensitySlider = document.getElementById('lutIntensitySlider');
 const intensityValueSpan = document.getElementById('intensityValue');
+
+// Blur slider
+const blurSlider = document.getElementById('blurSlider');
+const blurValueSpan = document.getElementById('blurValue');
 
 // Variables pour l'optimisation des performances
 let processingEffect = false;
@@ -521,11 +498,21 @@ lutIntensitySlider.addEventListener('input', createThrottledHandler(() => {
   if (fullResImage) applyEffects(true);
 }));
 
+// Update blur slider event listener
+blurSlider.addEventListener('input', createThrottledHandler(() => {
+  blurAmount = parseInt(blurSlider.value);
+  if (blurValueSpan) {
+    blurValueSpan.textContent = `${blurAmount}%`;
+  }
+  if (fullResImage) applyEffects(true);
+}));
+
 // Initialiser les valeurs affichées
 if (isoValueSpan) isoValueSpan.textContent = selectedISO;
 if (contrastValueSpan) contrastValueSpan.textContent = contrastAmount;
 if (exposureValueSpan) exposureValueSpan.textContent = exposureAmount;
 if (intensityValueSpan) intensityValueSpan.textContent = '100%';
+if (blurValueSpan) blurValueSpan.textContent = '0%';
 
 // Update grain generation function
 function addGrain(ctx, width, height, level) {
@@ -794,6 +781,11 @@ if (resetBtn) {
     lutIntensity = 1.0;
     if (intensityValueSpan) intensityValueSpan.textContent = '100%';
 
+    // Réinitialiser le blur
+    blurSlider.value = 0;
+    blurAmount = 0;
+    if (blurValueSpan) blurValueSpan.textContent = '0%';
+
     // Réappliquer le LUT par défaut
     document.getElementById('filmSelect').value = 'kodak_portra_160';
     document.getElementById('filmSelect').dispatchEvent(new Event('change'));
@@ -1058,6 +1050,78 @@ function applyRadialBlur(ctx, width, height, amount) {
             pixels[idx + 2] = tempPixels[idx + 2] * blendFactor + (b / count) * (1 - blendFactor);
             pixels[idx + 3] = tempPixels[idx + 3];
           }
+        }
+      }
+    }
+  }
+  
+  ctx.putImageData(imgData, 0, 0);
+}
+
+function applyLensBlur(ctx, width, height, amount) {
+  if (amount <= 0) return;
+  
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const pixels = imgData.data;
+  const tempPixels = new Uint8ClampedArray(pixels);
+  
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+  
+  // Convert percentage to actual blur radius
+  const blurRadius = (amount / 100) * 15; // Max radius of 15 pixels
+  const gaussianRadius = blurRadius * 0.5; // Gaussian blur radius is half of the main radius
+  
+  // Process in chunks for better performance
+  const chunkSize = isMobile ? 4 : 8;
+  const chunks = Math.ceil(height / chunkSize);
+  
+  for (let chunk = 0; chunk < chunks; chunk++) {
+    const startY = chunk * chunkSize;
+    const endY = Math.min(startY + chunkSize, height);
+    
+    for (let y = startY; y < endY; y++) {
+      for (let x = 0; x < width; x++) {
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const normalizedDistance = distance / maxDistance;
+        
+        // Calculate radial blur weight
+        const radialWeight = Math.max(0, 1 - normalizedDistance);
+        const radialBlur = radialWeight * blurRadius;
+        
+        // Calculate gaussian blur weight
+        const gaussianWeight = Math.exp(-(normalizedDistance * normalizedDistance) / (2 * gaussianRadius * gaussianRadius));
+        const gaussianBlur = gaussianWeight * gaussianRadius;
+        
+        // Combine both blur effects
+        const totalBlur = (radialBlur + gaussianBlur) * 0.5;
+        
+        if (totalBlur > 0) {
+          let r = 0, g = 0, b = 0, count = 0;
+          const samples = Math.min(16, Math.ceil(totalBlur * 2));
+          
+          for (let i = 0; i < samples; i++) {
+            const angle = (i / samples) * Math.PI * 2;
+            const blurX = Math.cos(angle) * totalBlur;
+            const blurY = Math.sin(angle) * totalBlur;
+            
+            const sampleX = Math.min(Math.max(x + blurX, 0), width - 1);
+            const sampleY = Math.min(Math.max(y + blurY, 0), height - 1);
+            
+            const idx = (sampleY * width + sampleX) * 4;
+            r += tempPixels[idx];
+            g += tempPixels[idx + 1];
+            b += tempPixels[idx + 2];
+            count++;
+          }
+          
+          const idx = (y * width + x) * 4;
+          pixels[idx] = r / count;
+          pixels[idx + 1] = g / count;
+          pixels[idx + 2] = b / count;
         }
       }
     }
