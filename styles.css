@@ -818,8 +818,24 @@ option {
   display: block !important;
 }
 
-/* Hide the native select visually but keep for form compatibility */
-#filmSelect { display: none !important; }
+/* Remove any rule that hides the native select */
+#filmSelect {
+  display: block !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 10;
+  background: #fff;
+  color: #131AF9;
+  border: 2px solid #131AF9;
+  border-radius: 0;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+  margin: 0;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
 
 /* Responsive adjustments */
 @media (max-width: 1023px) {
