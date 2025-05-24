@@ -838,3 +838,35 @@ option {
     padding: 14px 18px;
   }
 }
+
+@media (max-width: 1023px) {
+  .right-panel {
+    /* Remove overflow when dropdown is open to prevent clipping */
+    overflow-y: auto;
+    position: fixed;
+    z-index: 20;
+  }
+  .custom-dropdown.open ~ .slider-container,
+  .custom-dropdown.open ~ .settings-group {
+    z-index: 1;
+  }
+  .custom-dropdown.open {
+    z-index: 10001;
+  }
+  .custom-dropdown.open .custom-dropdown-list {
+    z-index: 10002;
+  }
+  .right-panel .custom-dropdown.open .custom-dropdown-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    max-height: 180px;
+    z-index: 10002;
+  }
+  /* Remove overflow when dropdown is open */
+  .right-panel:has(.custom-dropdown.open) {
+    overflow: visible !important;
+  }
+}
