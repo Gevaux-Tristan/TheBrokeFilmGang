@@ -542,6 +542,8 @@ option {
     border-left: none;
     border-top: 1.5px solid #e0e3f7;
     max-height: 30vh;
+    overflow-y: auto;
+    z-index: 20;
   }
 
   .preview-wrapper {
@@ -550,6 +552,55 @@ option {
 
   #previewCanvas {
     max-height: 70vh;
+  }
+
+  /* Fix dropdown behavior on mobile */
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: white;
+    position: relative;
+    z-index: 21;
+  }
+
+  select:focus {
+    outline: none;
+    position: relative;
+    z-index: 21;
+  }
+
+  /* Ensure the dropdown list stays within the settings panel */
+  select option {
+    position: relative;
+    z-index: 21;
+    background-color: white;
+  }
+
+  /* Container for the select element */
+  .settings-group:has(select) {
+    position: relative;
+    z-index: 21;
+    background-color: white;
+  }
+
+  /* Ensure the right panel contains the dropdown */
+  .right-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    z-index: 20;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent the dropdown from expanding beyond its container */
+  select:active,
+  select:focus {
+    position: relative;
+    z-index: 21;
   }
 
   input[type="range"] {
