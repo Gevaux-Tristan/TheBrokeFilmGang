@@ -1156,12 +1156,17 @@ function applyLensBlur(ctx, width, height, amount) {
   let isOpen = false;
   let originalParent = dropdown;
   let originalNextSibling = list.nextSibling;
+  let ignoreOutsideClick = false;
 
   // Helper: close dropdown
   function closeDropdown() {
     if (list.parentNode !== dropdown) {
-      // Move back to original parent
-      dropdown.insertBefore(list, originalNextSibling);
+      // Move back to original parent (append if no next sibling)
+      if (originalNextSibling && originalNextSibling.parentNode === dropdown) {
+        dropdown.insertBefore(list, originalNextSibling);
+      } else {
+        dropdown.appendChild(list);
+      }
       list.style.position = '';
       list.style.left = '';
       list.style.top = '';
@@ -1172,6 +1177,7 @@ function applyLensBlur(ctx, width, height, amount) {
     list.style.display = 'none';
     dropdown.classList.remove('open');
     isOpen = false;
+    ignoreOutsideClick = false;
   }
 
   // Helper: open dropdown (always downwards, portal to body)
@@ -1189,6 +1195,9 @@ function applyLensBlur(ctx, width, height, amount) {
     list.style.marginTop = '0';
     dropdown.classList.add('open');
     isOpen = true;
+    // Prevent immediate outside click from closing
+    ignoreOutsideClick = true;
+    setTimeout(() => { ignoreOutsideClick = false; }, 100);
   }
 
   // Toggle dropdown
@@ -1228,6 +1237,7 @@ function applyLensBlur(ctx, width, height, amount) {
 
   // Close on outside click or scroll
   document.addEventListener('click', function(e) {
+    if (ignoreOutsideClick) return;
     if (!dropdown.contains(e.target) && list.parentNode === document.body && !list.contains(e.target)) closeDropdown();
   });
   window.addEventListener('scroll', function() { if (isOpen) closeDropdown(); }, true);
