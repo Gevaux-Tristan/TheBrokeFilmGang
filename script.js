@@ -1091,8 +1091,8 @@ function applyLensBlur(ctx, width, height, amount) {
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
   
   // Convert percentage to actual blur radius
-  const blurRadius = (amount / 100) * 10; // Reduced max radius to 10 pixels
-  const gaussianRadius = blurRadius * 0.5;
+  const maxBlurRadius = (amount / 100) * 10; // Max radius of 10 pixels
+  const gaussianRadius = maxBlurRadius * 0.5;
   
   // Process in chunks for better performance
   const chunkSize = isMobile ? 4 : 8;
@@ -1109,20 +1109,20 @@ function applyLensBlur(ctx, width, height, amount) {
         const distance = Math.sqrt(dx * dx + dy * dy);
         const normalizedDistance = distance / maxDistance;
         
-        // Calculate radial blur weight
-        const radialWeight = Math.max(0, 1 - normalizedDistance);
-        const radialBlur = radialWeight * blurRadius;
+        // Calculate blur weight - now increases with distance from center
+        const blurWeight = Math.min(1, normalizedDistance * 2); // Smooth transition from center
+        const blurRadius = blurWeight * maxBlurRadius;
         
-        // Calculate gaussian blur weight
+        // Calculate gaussian falloff for smoother transition
         const gaussianWeight = Math.exp(-(normalizedDistance * normalizedDistance) / (2 * gaussianRadius * gaussianRadius));
-        const gaussianBlur = gaussianWeight * gaussianRadius;
+        const gaussianBlur = (1 - gaussianWeight) * maxBlurRadius;
         
-        // Combine both blur effects
-        const totalBlur = (radialBlur + gaussianBlur) * 0.5;
+        // Combine both blur effects, but now the blur increases with distance
+        const totalBlur = (blurRadius + gaussianBlur) * 0.5;
         
         if (totalBlur > 0) {
           let r = 0, g = 0, b = 0, count = 0;
-          const samples = Math.min(12, Math.ceil(totalBlur * 2)); // Reduced max samples
+          const samples = Math.min(12, Math.ceil(totalBlur * 2));
           
           for (let i = 0; i < samples; i++) {
             const angle = (i / samples) * Math.PI * 2;
@@ -1141,9 +1141,11 @@ function applyLensBlur(ctx, width, height, amount) {
           
           if (count > 0) {
             const idx = (y * width + x) * 4;
-            pixels[idx] = r / count;
-            pixels[idx + 1] = g / count;
-            pixels[idx + 2] = b / count;
+            // Blend between original and blurred pixels based on distance
+            const blendFactor = blurWeight;
+            pixels[idx] = tempPixels[idx] * (1 - blendFactor) + (r / count) * blendFactor;
+            pixels[idx + 1] = tempPixels[idx + 1] * (1 - blendFactor) + (g / count) * blendFactor;
+            pixels[idx + 2] = tempPixels[idx + 2] * (1 - blendFactor) + (b / count) * blendFactor;
             pixels[idx + 3] = tempPixels[idx + 3]; // Preserve alpha channel
           }
         }
