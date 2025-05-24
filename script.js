@@ -1145,3 +1145,107 @@ function applyLensBlur(ctx, width, height, amount) {
   
   ctx.putImageData(imgData, 0, 0);
 }
+
+// --- Custom Dropdown for LUTs ---
+(function() {
+  const dropdown = document.getElementById('customFilmDropdown');
+  if (!dropdown) return;
+  const selected = dropdown.querySelector('.custom-dropdown-selected');
+  const list = dropdown.querySelector('.custom-dropdown-list');
+  const hiddenInput = dropdown.querySelector('input[type="hidden"]');
+  let isOpen = false;
+
+  // Helper: close dropdown
+  function closeDropdown() {
+    list.style.display = 'none';
+    dropdown.classList.remove('open', 'open-up');
+    isOpen = false;
+  }
+
+  // Helper: open dropdown (upwards if near bottom)
+  function openDropdown() {
+    // Check if there's enough space below, else open upwards
+    const rect = dropdown.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    list.style.display = 'block';
+    if (spaceBelow < 300 && spaceAbove > spaceBelow) {
+      dropdown.classList.add('open-up');
+      list.style.bottom = '100%';
+      list.style.top = 'auto';
+    } else {
+      dropdown.classList.remove('open-up');
+      list.style.top = '100%';
+      list.style.bottom = 'auto';
+    }
+    dropdown.classList.add('open');
+    isOpen = true;
+  }
+
+  // Toggle dropdown
+  selected.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (isOpen) {
+      closeDropdown();
+    } else {
+      openDropdown();
+    }
+  });
+
+  // Option selection
+  list.addEventListener('click', function(e) {
+    const option = e.target.closest('.custom-dropdown-option');
+    if (option) {
+      const value = option.getAttribute('data-value');
+      const text = option.textContent;
+      selected.textContent = text;
+      hiddenInput.value = value;
+      closeDropdown();
+      // Trigger LUT change event (simulate native select)
+      const event = new Event('change', { bubbles: true });
+      hiddenInput.dispatchEvent(event);
+    }
+  });
+
+  // Keyboard accessibility
+  dropdown.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (isOpen) closeDropdown(); else openDropdown();
+    } else if (e.key === 'Escape') {
+      closeDropdown();
+    }
+  });
+
+  // Close on outside click
+  document.addEventListener('click', function(e) {
+    if (!dropdown.contains(e.target)) closeDropdown();
+  });
+
+  // Update LUT when hidden input changes
+  hiddenInput.addEventListener('change', function(e) {
+    // Use the same logic as the old select
+    const selectedFilm = hiddenInput.value;
+    fetch(`luts/${selectedFilm}.cube`).then(response => {
+      if (!response.ok) throw new Error(`Failed to load LUT: ${response.statusText}`);
+      return response.text();
+    }).then(lutText => {
+      lutData = parseCubeLUT(lutText);
+      if (fullResImage) applyEffects(true);
+    }).catch(error => {
+      console.error('Error loading LUT:', error);
+    });
+  });
+
+  // Show optgroup labels
+  Array.from(list.querySelectorAll('.custom-dropdown-optgroup')).forEach(optgroup => {
+    const label = optgroup.getAttribute('data-label');
+    if (label) {
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'custom-dropdown-optgroup-label';
+      labelDiv.textContent = label;
+      optgroup.insertBefore(labelDiv, optgroup.firstChild);
+    }
+  });
+})();
+// --- End Custom Dropdown ---

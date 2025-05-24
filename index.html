@@ -37,72 +37,76 @@
         </div>
       </div>
       <div class="settings-group">
-        <label for="filmSelect">Film</label>
-        <select id="filmSelect">
-          <optgroup label="Kodak">
-            <option value="kodak_portra_160" selected>Portra 160</option>
-            <option value="kodak_ektar_100">Ektar 100</option>
-            <option value="kodak_gold_200">Gold 200</option>
-            <option value="kodak_colorplus_200">ColorPlus 200</option>
-            <option value="kodak_trix_400">Tri-X 400</option>
-            <option value="kodak_vision">Vision3 250D</option>
-          </optgroup>
-          <optgroup label="Fujifilm">
-            <option value="fuji_pro">Pro 400H</option>
-          </optgroup>
-          <optgroup label="Kentmere">
-            <option value="kentmere">Kentmere 400</option>
-          </optgroup>
-          <optgroup label="Lomography">
-            <option value="lomography_cn">CN 800</option>
-          </optgroup>
-          <optgroup label="Agfa">
-            <option value="agfa_vista_200">Vista 200</option>
-            <option value="agfa_apx_100">APX 100</option>
-          </optgroup>
-          <optgroup label="Ilford">
-            <option value="ilford_hp5_plus_400">HP5 Plus 400</option>
-            <option value="ilford_delta_400">Delta 400</option>
-            <option value="ilford_pan_f_plus_50">Pan F Plus 50</option>
-          </optgroup>
-          <optgroup label="Cinematic">
-            <option value="atlas_hues">Cinematic-01</option>
-            <option value="blue_noir">Cinematic-02</option>
-            <option value="horizons">Cinematic-03</option>
-          </optgroup>
-          <optgroup label="Travel">
-            <option value="travel_03">Travel-01</option>
-            <option value="travel_06">Travel-02</option>
-            <option value="travel_13">Travel-03</option>
-          </optgroup>
-          <optgroup label="Documentary">
-            <option value="Documentary_01">Documentary 01</option>
-            <option value="Documentary_02">Documentary 02</option>
-            <option value="Documentary_03">Documentary 03</option>
-          </optgroup>
-          <optgroup label="Analog">
-            <option value="Channel X2">Analog-01</option>
-            <option value="Channel X3">Analog-02</option>
-            <option value="Channel X5">Analog-03</option>
-          </optgroup>
-          <optgroup label="Cross Process">
-            <option value="CROSS_PROCESS_01">Cross Process 01</option>
-            <option value="CROSS_PROCESS_02">Cross Process 02</option>
-            <option value="CROSS_PROCESS_03">Cross Process 03</option>
-          </optgroup>
-          <optgroup label="Dynamic Rangers">
-            <option value="DYNAMIC_RANGER_01">Dynamic Ranger 01</option>
-            <option value="DYNAMIC_RANGER_02">Dynamic Ranger 02</option>
-            <option value="DYNAMIC_RANGER_03">Dynamic Ranger 03</option>
-          </optgroup>
-          <optgroup label="Futuristic">
-            <option value="Euphoria">Euphoria</option>
-            <option value="Lava Lamp">Lava Lamp</option>
-            <option value="Nebula Flux">Nebula Flux</option>
-            <option value="Synesthesia">Synesthesia</option>
-            <option value="CHROMATIC">Chromatic</option>
-          </optgroup>
-        </select>
+        <label for="customFilmDropdown">Film</label>
+        <div id="customFilmDropdown" class="custom-dropdown" tabindex="0">
+          <div class="custom-dropdown-selected">Portra 160</div>
+          <div class="custom-dropdown-list" style="display: none;">
+            <div class="custom-dropdown-optgroup" data-label="Kodak">
+              <div class="custom-dropdown-option" data-value="kodak_portra_160">Portra 160</div>
+              <div class="custom-dropdown-option" data-value="kodak_ektar_100">Ektar 100</div>
+              <div class="custom-dropdown-option" data-value="kodak_gold_200">Gold 200</div>
+              <div class="custom-dropdown-option" data-value="kodak_colorplus_200">ColorPlus 200</div>
+              <div class="custom-dropdown-option" data-value="kodak_trix_400">Tri-X 400</div>
+              <div class="custom-dropdown-option" data-value="kodak_vision">Vision3 250D</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Fujifilm">
+              <div class="custom-dropdown-option" data-value="fuji_pro">Pro 400H</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Kentmere">
+              <div class="custom-dropdown-option" data-value="kentmere">Kentmere 400</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Lomography">
+              <div class="custom-dropdown-option" data-value="lomography_cn">CN 800</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Agfa">
+              <div class="custom-dropdown-option" data-value="agfa_vista_200">Vista 200</div>
+              <div class="custom-dropdown-option" data-value="agfa_apx_100">APX 100</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Ilford">
+              <div class="custom-dropdown-option" data-value="ilford_hp5_plus_400">HP5 Plus 400</div>
+              <div class="custom-dropdown-option" data-value="ilford_delta_400">Delta 400</div>
+              <div class="custom-dropdown-option" data-value="ilford_pan_f_plus_50">Pan F Plus 50</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Cinematic">
+              <div class="custom-dropdown-option" data-value="atlas_hues">Cinematic-01</div>
+              <div class="custom-dropdown-option" data-value="blue_noir">Cinematic-02</div>
+              <div class="custom-dropdown-option" data-value="horizons">Cinematic-03</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Travel">
+              <div class="custom-dropdown-option" data-value="travel_03">Travel-01</div>
+              <div class="custom-dropdown-option" data-value="travel_06">Travel-02</div>
+              <div class="custom-dropdown-option" data-value="travel_13">Travel-03</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Documentary">
+              <div class="custom-dropdown-option" data-value="Documentary_01">Documentary 01</div>
+              <div class="custom-dropdown-option" data-value="Documentary_02">Documentary 02</div>
+              <div class="custom-dropdown-option" data-value="Documentary_03">Documentary 03</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Analog">
+              <div class="custom-dropdown-option" data-value="Channel X2">Analog-01</div>
+              <div class="custom-dropdown-option" data-value="Channel X3">Analog-02</div>
+              <div class="custom-dropdown-option" data-value="Channel X5">Analog-03</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Cross Process">
+              <div class="custom-dropdown-option" data-value="CROSS_PROCESS_01">Cross Process 01</div>
+              <div class="custom-dropdown-option" data-value="CROSS_PROCESS_02">Cross Process 02</div>
+              <div class="custom-dropdown-option" data-value="CROSS_PROCESS_03">Cross Process 03</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Dynamic Rangers">
+              <div class="custom-dropdown-option" data-value="DYNAMIC_RANGER_01">Dynamic Ranger 01</div>
+              <div class="custom-dropdown-option" data-value="DYNAMIC_RANGER_02">Dynamic Ranger 02</div>
+              <div class="custom-dropdown-option" data-value="DYNAMIC_RANGER_03">Dynamic Ranger 03</div>
+            </div>
+            <div class="custom-dropdown-optgroup" data-label="Futuristic">
+              <div class="custom-dropdown-option" data-value="Euphoria">Euphoria</div>
+              <div class="custom-dropdown-option" data-value="Lava Lamp">Lava Lamp</div>
+              <div class="custom-dropdown-option" data-value="Nebula Flux">Nebula Flux</div>
+              <div class="custom-dropdown-option" data-value="Synesthesia">Synesthesia</div>
+              <div class="custom-dropdown-option" data-value="CHROMATIC">Chromatic</div>
+            </div>
+          </div>
+          <input type="hidden" id="filmSelect" name="filmSelect" value="kodak_portra_160">
+        </div>
       </div>
       <div class="settings-group">
         <div class="slider-container">
