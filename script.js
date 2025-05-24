@@ -1157,9 +1157,11 @@ function applyLensBlur(ctx, width, height, amount) {
   let originalParent = dropdown;
   let originalNextSibling = list.nextSibling;
   let ignoreOutsideClick = false;
+  let ignoreScrollResize = false;
 
   // Helper: close dropdown
   function closeDropdown() {
+    console.log('Dropdown: closeDropdown called');
     if (list.parentNode !== dropdown) {
       // Move back to original parent (append if no next sibling)
       if (originalNextSibling && originalNextSibling.parentNode === dropdown) {
@@ -1178,10 +1180,12 @@ function applyLensBlur(ctx, width, height, amount) {
     dropdown.classList.remove('open');
     isOpen = false;
     ignoreOutsideClick = false;
+    ignoreScrollResize = false;
   }
 
   // Helper: open dropdown (always downwards, portal to body)
   function openDropdown() {
+    console.log('Dropdown: openDropdown called');
     // Get bounding rect of dropdown
     const rect = dropdown.getBoundingClientRect();
     // Move list to body
@@ -1195,13 +1199,15 @@ function applyLensBlur(ctx, width, height, amount) {
     list.style.marginTop = '0';
     dropdown.classList.add('open');
     isOpen = true;
-    // Prevent immediate outside click from closing
+    // Prevent immediate outside click/scroll/resize from closing
     ignoreOutsideClick = true;
-    setTimeout(() => { ignoreOutsideClick = false; }, 100);
+    ignoreScrollResize = true;
+    setTimeout(() => { ignoreOutsideClick = false; ignoreScrollResize = false; }, 200);
   }
 
   // Toggle dropdown
   selected.addEventListener('click', function(e) {
+    console.log('Dropdown: selected clicked');
     e.stopPropagation();
     if (isOpen) {
       closeDropdown();
@@ -1237,11 +1243,14 @@ function applyLensBlur(ctx, width, height, amount) {
 
   // Close on outside click or scroll
   document.addEventListener('click', function(e) {
-    if (ignoreOutsideClick) return;
-    if (!dropdown.contains(e.target) && list.parentNode === document.body && !list.contains(e.target)) closeDropdown();
+    if (ignoreOutsideClick) { console.log('Dropdown: ignoring outside click'); return; }
+    if (!dropdown.contains(e.target) && list.parentNode === document.body && !list.contains(e.target)) {
+      console.log('Dropdown: outside click detected, closing');
+      closeDropdown();
+    }
   });
-  window.addEventListener('scroll', function() { if (isOpen) closeDropdown(); }, true);
-  window.addEventListener('resize', function() { if (isOpen) closeDropdown(); });
+  window.addEventListener('scroll', function() { if (isOpen && !ignoreScrollResize) { console.log('Dropdown: scroll detected, closing'); closeDropdown(); } }, true);
+  window.addEventListener('resize', function() { if (isOpen && !ignoreScrollResize) { console.log('Dropdown: resize detected, closing'); closeDropdown(); } });
 
   // Update LUT when hidden input changes
   hiddenInput.addEventListener('change', function(e) {
@@ -1268,5 +1277,8 @@ function applyLensBlur(ctx, width, height, amount) {
       optgroup.insertBefore(labelDiv, optgroup.firstChild);
     }
   });
+
+  // Ensure pointer events are enabled
+  selected.style.pointerEvents = 'auto';
 })();
 // --- End Custom Dropdown ---
