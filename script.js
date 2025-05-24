@@ -388,6 +388,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
     // Apply lens blur if enabled
     if (blurAmount > 0) {
+      console.log('Applying lens blur with amount:', blurAmount);
       applyLensBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
@@ -1080,7 +1081,7 @@ function applyLensBlur(ctx, width, height, amount) {
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
   
   // Convert percentage to actual blur radius
-  const maxBlurRadius = (amount / 100) * 10; // Max radius of 10 pixels
+  const maxBlurRadius = (amount / 100) * 15; // Increased max radius for more visible effect
   const gaussianRadius = maxBlurRadius * 0.5;
   
   // Process in chunks for better performance
@@ -1111,7 +1112,7 @@ function applyLensBlur(ctx, width, height, amount) {
         
         if (totalBlur > 0) {
           let r = 0, g = 0, b = 0, count = 0;
-          const samples = Math.min(12, Math.ceil(totalBlur * 2));
+          const samples = Math.min(16, Math.ceil(totalBlur * 2)); // Increased samples for better quality
           
           for (let i = 0; i < samples; i++) {
             const angle = (i / samples) * Math.PI * 2;
