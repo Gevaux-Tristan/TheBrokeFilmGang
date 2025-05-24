@@ -176,25 +176,46 @@ function createThrottledHandler(callback) {
 function processImageEffects(ctx, width, height, isExport = false) {
   // Get image data for processing
   const imgData = ctx.getImageData(0, 0, width, height);
-  const pixels = imgData.data;
+  const data = imgData.data;
+  const originalData = new Uint8ClampedArray(data);
+
+  // Apply LUT first if present and intensity > 0
+  if (lutData && lutIntensity > 0) {
+    try {
+      for (let i = 0; i < data.length; i += 4) {
+        const r = originalData[i] / 255;
+        const g = originalData[i + 1] / 255;
+        const b = originalData[i + 2] / 255;
+
+        const newColor = trilinearLUTLookup(lutData, r, g, b);
+        
+        data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
+        data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
+        data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
+      }
+    } catch (error) {
+      console.error("Error applying LUT:", error);
+      data.set(originalData);
+    }
+  }
 
   // Apply contrast
   if (contrastAmount !== 0) {
     const factor = (259 * (contrastAmount + 255)) / (255 * (259 - contrastAmount));
-    for (let i = 0; i < pixels.length; i += 4) {
-      pixels[i] = factor * (pixels[i] - 128) + 128;
-      pixels[i + 1] = factor * (pixels[i + 1] - 128) + 128;
-      pixels[i + 2] = factor * (pixels[i + 2] - 128) + 128;
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = factor * (data[i] - 128) + 128;
+      data[i + 1] = factor * (data[i + 1] - 128) + 128;
+      data[i + 2] = factor * (data[i + 2] - 128) + 128;
     }
   }
 
   // Apply exposure
   if (exposureAmount !== 0) {
     const factor = Math.pow(2, exposureAmount);
-    for (let i = 0; i < pixels.length; i += 4) {
-      pixels[i] = Math.min(255, pixels[i] * factor);
-      pixels[i + 1] = Math.min(255, pixels[i + 1] * factor);
-      pixels[i + 2] = Math.min(255, pixels[i + 2] * factor);
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.min(255, data[i] * factor);
+      data[i + 1] = Math.min(255, data[i + 1] * factor);
+      data[i + 2] = Math.min(255, data[i + 2] * factor);
     }
   }
 
@@ -1070,8 +1091,8 @@ function applyLensBlur(ctx, width, height, amount) {
   const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
   
   // Convert percentage to actual blur radius
-  const blurRadius = (amount / 100) * 15; // Max radius of 15 pixels
-  const gaussianRadius = blurRadius * 0.5; // Gaussian blur radius is half of the main radius
+  const blurRadius = (amount / 100) * 10; // Reduced max radius to 10 pixels
+  const gaussianRadius = blurRadius * 0.5;
   
   // Process in chunks for better performance
   const chunkSize = isMobile ? 4 : 8;
@@ -1101,15 +1122,15 @@ function applyLensBlur(ctx, width, height, amount) {
         
         if (totalBlur > 0) {
           let r = 0, g = 0, b = 0, count = 0;
-          const samples = Math.min(16, Math.ceil(totalBlur * 2));
+          const samples = Math.min(12, Math.ceil(totalBlur * 2)); // Reduced max samples
           
           for (let i = 0; i < samples; i++) {
             const angle = (i / samples) * Math.PI * 2;
             const blurX = Math.cos(angle) * totalBlur;
             const blurY = Math.sin(angle) * totalBlur;
             
-            const sampleX = Math.min(Math.max(x + blurX, 0), width - 1);
-            const sampleY = Math.min(Math.max(y + blurY, 0), height - 1);
+            const sampleX = Math.min(Math.max(Math.round(x + blurX), 0), width - 1);
+            const sampleY = Math.min(Math.max(Math.round(y + blurY), 0), height - 1);
             
             const idx = (sampleY * width + sampleX) * 4;
             r += tempPixels[idx];
@@ -1118,10 +1139,13 @@ function applyLensBlur(ctx, width, height, amount) {
             count++;
           }
           
-          const idx = (y * width + x) * 4;
-          pixels[idx] = r / count;
-          pixels[idx + 1] = g / count;
-          pixels[idx + 2] = b / count;
+          if (count > 0) {
+            const idx = (y * width + x) * 4;
+            pixels[idx] = r / count;
+            pixels[idx + 1] = g / count;
+            pixels[idx + 2] = b / count;
+            pixels[idx + 3] = tempPixels[idx + 3]; // Preserve alpha channel
+          }
         }
       }
     }
