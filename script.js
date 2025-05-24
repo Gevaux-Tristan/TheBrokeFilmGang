@@ -1264,3 +1264,12 @@ function applyLensBlur(ctx, width, height, amount) {
   selected.style.pointerEvents = 'auto';
 })();
 // --- End Custom Dropdown ---
+
+const cameraBtn = document.getElementById('cameraBtn');
+const cameraCapture = document.getElementById('cameraCapture');
+if (cameraBtn && cameraCapture) {
+  cameraBtn.addEventListener('click', () => cameraCapture.click());
+  cameraCapture.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+  });
+}
