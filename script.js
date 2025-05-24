@@ -1154,19 +1154,39 @@ function applyLensBlur(ctx, width, height, amount) {
   const list = dropdown.querySelector('.custom-dropdown-list');
   const hiddenInput = dropdown.querySelector('input[type="hidden"]');
   let isOpen = false;
+  let originalParent = dropdown;
+  let originalNextSibling = list.nextSibling;
 
   // Helper: close dropdown
   function closeDropdown() {
+    if (list.parentNode !== dropdown) {
+      // Move back to original parent
+      dropdown.insertBefore(list, originalNextSibling);
+      list.style.position = '';
+      list.style.left = '';
+      list.style.top = '';
+      list.style.width = '';
+      list.style.zIndex = '';
+      list.style.marginTop = '';
+    }
     list.style.display = 'none';
     dropdown.classList.remove('open');
     isOpen = false;
   }
 
-  // Helper: open dropdown (always downwards)
+  // Helper: open dropdown (always downwards, portal to body)
   function openDropdown() {
+    // Get bounding rect of dropdown
+    const rect = dropdown.getBoundingClientRect();
+    // Move list to body
+    document.body.appendChild(list);
     list.style.display = 'block';
-    list.style.top = '100%';
-    list.style.bottom = 'auto';
+    list.style.position = 'absolute';
+    list.style.left = rect.left + 'px';
+    list.style.top = (rect.bottom + window.scrollY) + 'px';
+    list.style.width = rect.width + 'px';
+    list.style.zIndex = '10002';
+    list.style.marginTop = '0';
     dropdown.classList.add('open');
     isOpen = true;
   }
@@ -1206,10 +1226,12 @@ function applyLensBlur(ctx, width, height, amount) {
     }
   });
 
-  // Close on outside click
+  // Close on outside click or scroll
   document.addEventListener('click', function(e) {
-    if (!dropdown.contains(e.target)) closeDropdown();
+    if (!dropdown.contains(e.target) && list.parentNode === document.body && !list.contains(e.target)) closeDropdown();
   });
+  window.addEventListener('scroll', function() { if (isOpen) closeDropdown(); }, true);
+  window.addEventListener('resize', function() { if (isOpen) closeDropdown(); });
 
   // Update LUT when hidden input changes
   hiddenInput.addEventListener('change', function(e) {
