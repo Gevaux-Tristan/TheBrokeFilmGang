@@ -1284,6 +1284,8 @@ const cancelCropBtn = document.getElementById('cancelCropBtn');
 
 if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn) {
   cropBtn.addEventListener('click', () => {
+    console.log('[Crop] Crop button clicked');
+    console.log('[Crop] fullResImage:', fullResImage);
     if (!fullResImage) return;
     // Show modal
     cropperModal.style.display = 'flex';
