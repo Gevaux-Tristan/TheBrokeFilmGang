@@ -1273,3 +1273,78 @@ if (cameraBtn && cameraCapture) {
     handleFiles(e.target.files);
   });
 }
+
+// --- Cropper.js Integration ---
+let cropper = null;
+const cropBtn = document.getElementById('cropBtn');
+const cropperModal = document.getElementById('cropperModal');
+const cropperImage = document.getElementById('cropperImage');
+const applyCropBtn = document.getElementById('applyCropBtn');
+const cancelCropBtn = document.getElementById('cancelCropBtn');
+
+if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn) {
+  cropBtn.addEventListener('click', () => {
+    if (!fullResImage) return;
+    // Show modal
+    cropperModal.style.display = 'flex';
+    // Set image src to current preview
+    // Use the original image if available, else the current canvas
+    if (originalImageDataUrl) {
+      cropperImage.src = originalImageDataUrl;
+    } else {
+      cropperImage.src = canvas.toDataURL('image/png');
+    }
+    // Wait for image to load, then initialize cropper
+    cropperImage.onload = () => {
+      if (cropper) cropper.destroy();
+      cropper = new Cropper(cropperImage, {
+        viewMode: 1,
+        background: false,
+        autoCropArea: 1,
+        movable: true,
+        zoomable: true,
+        scalable: false,
+        rotatable: false,
+        responsive: true,
+        aspectRatio: NaN,
+        guides: true,
+        highlight: true,
+        dragMode: 'move',
+        cropBoxResizable: true,
+        cropBoxMovable: true,
+        minContainerWidth: 320,
+        minContainerHeight: 240,
+      });
+    };
+  });
+
+  applyCropBtn.addEventListener('click', () => {
+    if (cropper) {
+      const croppedCanvas = cropper.getCroppedCanvas();
+      if (croppedCanvas) {
+        // Update the original image and preview
+        const croppedDataUrl = croppedCanvas.toDataURL('image/png');
+        const img = new Image();
+        img.onload = function () {
+          fullResImage = img;
+          originalImageDataUrl = croppedDataUrl;
+          leakImage = null;
+          applyEffects(true);
+        };
+        img.src = croppedDataUrl;
+      }
+      cropper.destroy();
+      cropper = null;
+    }
+    cropperModal.style.display = 'none';
+  });
+
+  cancelCropBtn.addEventListener('click', () => {
+    if (cropper) {
+      cropper.destroy();
+      cropper = null;
+    }
+    cropperModal.style.display = 'none';
+  });
+}
+// --- End Cropper.js Integration ---

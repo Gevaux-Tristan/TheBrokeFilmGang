@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </head>
 <body>
   <div class="app-layout">
@@ -27,6 +29,7 @@
           </div>
         </div>
       </div>
+      <button id="cropBtn" class="download-button" style="margin: 16px auto 0 auto; width: 90%;">Crop</button>
     </div>
     <div class="right-panel">
       <img src="logo.svg" alt="The Broke Film Gang" class="app-logo" style="width: 100%; display: block;" />
@@ -162,6 +165,13 @@
         </button>
         <button id="resetBtn" class="reset-button" type="button">Reset</button>
       </div>
+    </div>
+  </div>
+  <div id="cropperModal" style="display:none; position:fixed; z-index:20000; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; flex-direction:column;">
+    <img id="cropperImage" style="max-width:90vw; max-height:70vh; display:block; margin: 40px auto 16px auto; background:#fff;" />
+    <div style="text-align:center; margin-bottom:32px;">
+      <button id="applyCropBtn" class="download-button" style="margin-right:12px;">Apply Crop</button>
+      <button id="cancelCropBtn" class="reset-button">Cancel</button>
     </div>
   </div>
   <script src="script.js"></script>
