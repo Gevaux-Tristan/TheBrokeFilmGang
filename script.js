@@ -1350,3 +1350,31 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn) {
   });
 }
 // --- End Cropper.js Integration ---
+
+function positionCropBtn() {
+  const cropBtn = document.getElementById('cropBtn');
+  const previewWrapper = document.querySelector('.preview-wrapper');
+  if (!cropBtn || !previewWrapper) return;
+  // Only apply on mobile
+  if (window.innerWidth <= 1023) {
+    const previewRect = previewWrapper.getBoundingClientRect();
+    const btnRect = cropBtn.getBoundingClientRect();
+    // Calculate the bottom offset so the button sits at the bottom right of the preview
+    const bottomOffset = Math.max(12, window.innerHeight - previewRect.bottom);
+    cropBtn.style.position = 'absolute';
+    cropBtn.style.right = '12px';
+    cropBtn.style.bottom = bottomOffset + 'px';
+  } else {
+    cropBtn.style.position = '';
+    cropBtn.style.right = '';
+    cropBtn.style.bottom = '';
+  }
+}
+window.addEventListener('resize', positionCropBtn);
+window.addEventListener('orientationchange', positionCropBtn);
+document.addEventListener('DOMContentLoaded', positionCropBtn);
+setTimeout(positionCropBtn, 100); // In case of late layout
+// Also call after image load
+if (window.fullResImage) {
+  window.fullResImage.onload = positionCropBtn;
+}
