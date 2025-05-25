@@ -931,3 +931,51 @@ option {
     height: 24px;
   }
 }
+
+.cropper-modal-btns {
+  width: 90vw;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 auto 32px auto;
+}
+#applyCropBtn.download-button {
+  width: 100%;
+  margin: 0;
+}
+.cancel-crop-btn {
+  width: 100%;
+  margin: 0;
+  padding: 14px 0;
+  background: #e5396a;
+  color: #fff;
+  border: none;
+  border-radius: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.18s;
+  font-family: 'Inter', sans-serif;
+  display: block;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+.cancel-crop-btn:hover, .cancel-crop-btn:focus {
+  background: #b71c3a;
+}
+
+@media (max-width: 1023px) {
+  .fab-crop-btn {
+    width: 48px;
+    height: 48px;
+    right: 12px;
+    /* Place the button above the settings panel (which is 30vh tall) */
+    bottom: calc(30vh + 12px);
+  }
+  .fab-crop-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+}
