@@ -44,6 +44,9 @@
         </div>
       </div>
       <div class="settings-group">
+        <button id="cropBtn" class="download-button" style="width: 100%; margin-bottom: 10px;">Crop</button>
+      </div>
+      <div class="settings-group">
         <label for="filmSelect">Film</label>
         <select id="filmSelect">
           <optgroup label="Kodak">
@@ -168,7 +171,7 @@
     </div>
   </div>
   <div id="cropperModal" style="display:none; position:fixed; z-index:20000; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; flex-direction:column;">
-    <img id="cropperImage" style="max-width:90vw; max-height:70vh; display:block; margin: 40px auto 16px auto; background:#fff;" />
+    <img id="cropperImage" style="max-width:96vw; max-height:60vh; display:block; margin: 40px auto 16px auto; background:#fff;" />
     <div style="text-align:center; margin-bottom:32px;">
       <button id="applyCropBtn" class="download-button" style="margin-right:12px;">Apply Crop</button>
       <button id="cancelCropBtn" class="reset-button">Cancel</button>
