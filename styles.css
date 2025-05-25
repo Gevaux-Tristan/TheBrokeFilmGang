@@ -520,6 +520,11 @@ option {
   input[type="range"] {
     pointer-events: auto; /* Revert to full interactivity on desktop */
   }
+
+  #cameraBtn,
+  #cameraCapture {
+    display: none !important;
+  }
 }
 
 /* --- OPTIMISATIONS MOBILE --- */
@@ -639,6 +644,17 @@ option {
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
     backface-visibility: hidden;
+  }
+
+  .fab-crop-btn {
+    width: 48px;
+    height: 48px;
+    right: 12px;
+    bottom: 12px;
+  }
+  .fab-crop-btn svg {
+    width: 24px;
+    height: 24px;
   }
 }
 
@@ -971,8 +987,7 @@ option {
     width: 48px;
     height: 48px;
     right: 12px;
-    /* Place the button above the settings panel (which is 30vh tall) */
-    bottom: calc(30vh + 12px);
+    bottom: 12px;
   }
   .fab-crop-btn svg {
     width: 24px;
