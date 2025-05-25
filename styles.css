@@ -893,7 +893,7 @@ option {
 .fab-crop-btn {
   position: absolute;
   bottom: 24px;
-  left: 24px;
+  right: 24px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -924,7 +924,7 @@ option {
     width: 48px;
     height: 48px;
     bottom: 12px;
-    left: 12px;
+    right: 12px;
   }
   .fab-crop-btn svg {
     width: 24px;
