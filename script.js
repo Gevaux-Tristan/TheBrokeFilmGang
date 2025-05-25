@@ -307,7 +307,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     let exportHeight = fullResImage.height;
     
     // Set maximum dimensions to maintain file size under 2MB
-    const MAX_EXPORT_SIZE = isMobile ? 1080 : 2048; // Reduced mobile size for better performance
+    const MAX_EXPORT_SIZE = 4096; // Increased for higher quality/size
     if (exportWidth > MAX_EXPORT_SIZE) {
       exportWidth = MAX_EXPORT_SIZE;
       exportHeight = Math.floor(exportWidth / aspectRatio);
@@ -405,7 +405,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
 
     // Convert to Blob with adjusted quality
-    const quality = isMobile ? 0.85 : 0.95; // Reduced mobile quality for better performance
+    const quality = 1.0; // Maximum quality for largest file size
     const blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', quality);
     });
@@ -1082,6 +1082,7 @@ function applyLensBlur(ctx, width, height, amount) {
   
   // Convert percentage to actual blur radius
   const maxBlurRadius = (amount / 100) * 15; // Increased max radius for more visible effect
+  const minBlurRadius = maxBlurRadius * 0.25; // Minimum blur in the center (25% of max)
   const gaussianRadius = maxBlurRadius * 0.5;
   
   // Process in chunks for better performance
@@ -1100,8 +1101,9 @@ function applyLensBlur(ctx, width, height, amount) {
         const normalizedDistance = distance / maxDistance;
         
         // Calculate blur weight - now increases with distance from center
-        const blurWeight = Math.min(1, normalizedDistance * 2); // Smooth transition from center
-        const blurRadius = blurWeight * maxBlurRadius;
+        // But always at least minBlurRadius
+        const blurWeight = Math.min(1, normalizedDistance * 2);
+        const blurRadius = minBlurRadius + (maxBlurRadius - minBlurRadius) * blurWeight;
         
         // Calculate gaussian falloff for smoother transition
         const gaussianWeight = Math.exp(-(normalizedDistance * normalizedDistance) / (2 * gaussianRadius * gaussianRadius));
