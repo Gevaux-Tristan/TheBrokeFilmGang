@@ -405,10 +405,18 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     const fileName = `TheBrokeFilmGang-${dateStr}.jpg`;
 
     // Convert to Blob with adjusted quality
-    const quality = 1.0; // Maximum quality for largest file size
-    const blob = await new Promise(resolve => {
+    let quality = 1.0;
+    let blob = await new Promise(resolve => {
       exportCanvas.toBlob(resolve, 'image/jpeg', quality);
     });
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    const MIN_QUALITY = 0.7;
+    while (blob && blob.size > MAX_SIZE && quality > MIN_QUALITY) {
+      quality -= 0.07;
+      blob = await new Promise(resolve => {
+        exportCanvas.toBlob(resolve, 'image/jpeg', quality);
+      });
+    }
 
     if (!blob) {
       throw new Error("Export failed: could not create image file. Try with a smaller image or different settings.");
