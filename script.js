@@ -1082,7 +1082,7 @@ function applyLensBlur(ctx, width, height, amount) {
   
   // Convert percentage to actual blur radius
   const maxBlurRadius = (amount / 100) * 15; // Increased max radius for more visible effect
-  const minBlurRadius = maxBlurRadius * 0.25; // Minimum blur in the center (25% of max)
+  const minBlurRadius = maxBlurRadius * 0.5; // Minimum blur in the center (50% of max)
   const gaussianRadius = maxBlurRadius * 0.5;
   
   // Process in chunks for better performance
