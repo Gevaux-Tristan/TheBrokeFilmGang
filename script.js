@@ -1308,7 +1308,7 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn) {
         movable: true,
         zoomable: true,
         scalable: false,
-        rotatable: false,
+        rotatable: true,
         responsive: true,
         aspectRatio: NaN,
         guides: true,
