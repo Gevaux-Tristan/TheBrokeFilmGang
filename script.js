@@ -1298,8 +1298,8 @@ const cropRotateValue = document.getElementById('cropRotateValue');
 
 if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && rotateLeftBtn && rotateRightBtn && cropRotateSlider && cropRotateValue) {
   cropBtn.addEventListener('click', () => {
-    console.log('[Crop] Crop button clicked');
-    console.log('[Crop] fullResImage:', fullResImage);
+    console.log('[Crop DEBUG] Crop button clicked! User agent:', navigator.userAgent);
+    console.log('[Crop DEBUG] fullResImage:', fullResImage);
     if (!fullResImage) return;
     // Show modal
     cropperModal.style.display = 'flex';
