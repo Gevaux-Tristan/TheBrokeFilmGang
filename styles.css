@@ -920,7 +920,7 @@ option {
 
 /* Floating Crop Button (FAB) */
 .fab-crop-btn {
-  position: fixed;
+  position: absolute;
   bottom: 20px !important;
   right: 20px !important;
   width: 56px;
@@ -1070,6 +1070,20 @@ option {
   margin: 0 !important;
   background: #fff !important;
   border-bottom: 2px solid #222 !important;
+  object-fit: contain !important;
+}
+
+/* Hide any duplicate image that might be created by Cropper.js */
+#cropperModal .cropper-container {
+  max-width: 100vw !important;
+  max-height: 50vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+#cropperModal .cropper-view-box,
+#cropperModal .cropper-face {
+  border-radius: 0 !important;
 }
 
 #cropperModal .cropper-rotate-slider {
@@ -1110,7 +1124,8 @@ option {
 }
 
 @media (max-width: 767px) {
-  #cropperModal #cropperImage {
+  #cropperModal #cropperImage,
+  #cropperModal .cropper-container {
     max-height: 40vh !important;
   }
   #cropperModal .cropper-rotate-slider {
