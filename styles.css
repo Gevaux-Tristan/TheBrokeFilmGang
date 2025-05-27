@@ -999,20 +999,30 @@ option {
   }
 }
 
-.cropper-rotate-btns {
+.cropper-rotate-slider {
   width: 90vw;
   max-width: 400px;
-  display: flex;
-  flex-direction: row;
-  gap: 14px;
   margin: 0 auto 18px auto;
-  justify-content: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
-.cropper-rotate-btns .download-button {
+.cropper-rotate-slider label {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 1.05rem;
+}
+.cropper-rotate-slider input[type="range"] {
   width: 100%;
   margin: 0;
-  font-size: 1.05rem;
-  padding: 12px 0;
+  accent-color: #131AF9;
+}
+.cropper-rotate-slider span {
+  color: #fff;
+  margin-top: 4px;
+  font-size: 1.02rem;
+  font-weight: 500;
 }
 
 #cropperModal {

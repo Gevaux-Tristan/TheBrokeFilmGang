@@ -1293,8 +1293,10 @@ const applyCropBtn = document.getElementById('applyCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
 const rotateLeftBtn = document.getElementById('rotateLeftBtn');
 const rotateRightBtn = document.getElementById('rotateRightBtn');
+const cropRotateSlider = document.getElementById('cropRotateSlider');
+const cropRotateValue = document.getElementById('cropRotateValue');
 
-if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && rotateLeftBtn && rotateRightBtn) {
+if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && rotateLeftBtn && rotateRightBtn && cropRotateSlider && cropRotateValue) {
   cropBtn.addEventListener('click', () => {
     console.log('[Crop] Crop button clicked');
     console.log('[Crop] fullResImage:', fullResImage);
@@ -1308,6 +1310,9 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && 
     } else {
       cropperImage.src = canvas.toDataURL('image/png');
     }
+    // Reset rotation slider
+    cropRotateSlider.value = 0;
+    cropRotateValue.textContent = '0°';
     // Wait for image to load, then initialize cropper
     cropperImage.onload = () => {
       if (cropper) cropper.destroy();
@@ -1328,6 +1333,12 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && 
         cropBoxMovable: true,
         minContainerWidth: 320,
         minContainerHeight: 240,
+      });
+      // Set up free rotation
+      cropRotateSlider.addEventListener('input', function() {
+        const angle = parseInt(this.value, 10);
+        cropper.rotateTo(angle);
+        cropRotateValue.textContent = angle + '°';
       });
     };
   });
