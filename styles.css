@@ -525,6 +525,10 @@ option {
   #cameraCapture {
     display: none !important;
   }
+
+  #cropBtn {
+    display: none !important;
+  }
 }
 
 /* --- OPTIMISATIONS MOBILE --- */
@@ -1009,4 +1013,19 @@ option {
   margin: 0;
   font-size: 1.05rem;
   padding: 12px 0;
+}
+
+#cropperModal {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999 !important;
+  background: rgba(0,0,0,0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  overflow: auto;
 }
