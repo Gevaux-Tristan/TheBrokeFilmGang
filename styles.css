@@ -82,7 +82,6 @@ body {
   border-radius: 0;
   overflow: hidden;
   height: 100%;
-  isolation: isolate;
 }
 
 #previewCanvas {
@@ -921,9 +920,9 @@ option {
 
 /* Floating Crop Button (FAB) */
 .fab-crop-btn {
-  position: absolute;
-  bottom: 20px !important;
-  right: 20px !important;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -935,114 +934,50 @@ option {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 10;
+  z-index: 100;
   transition: background 0.18s, box-shadow 0.18s;
-  outline: none;
 }
 
-.fab-crop-btn:hover, .fab-crop-btn:focus {
+.fab-crop-btn:hover {
   background: #0d1280;
   box-shadow: 0 6px 24px rgba(19,26,249,0.28);
 }
 
 .fab-crop-btn svg {
-  display: block;
   width: 28px;
   height: 28px;
   stroke: #fff;
 }
 
-@media (max-width: 600px) {
+/* Mobile Styles */
+@media (max-width: 767px) {
   .fab-crop-btn {
-    bottom: 20px !important;
-    right: 20px !important;
+    position: fixed;
+    bottom: 12px;
+    right: 12px;
     width: 48px;
     height: 48px;
+    z-index: 100;
+    display: flex !important;
   }
+  
   .fab-crop-btn svg {
     width: 24px;
     height: 24px;
   }
 }
 
-/* Ensure the button is hidden on desktop */
+/* Hide crop button on desktop */
 @media (min-width: 1024px) {
   .fab-crop-btn {
-    display: none !important;
+    display: none;
   }
 }
 
-.cropper-modal-btns {
-  width: 90vw;
-  max-width: 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin: 0 auto 32px auto;
-}
-#applyCropBtn.download-button {
-  width: 100%;
-  margin: 0;
-}
-.cancel-crop-btn {
-  width: 100%;
-  margin: 0;
-  padding: 14px 0;
-  background: #e5396a;
-  color: #fff;
-  border: none;
-  border-radius: 0;
-  font-weight: 700;
-  font-size: 1.1rem;
-  cursor: pointer;
-  box-shadow: none;
-  transition: background 0.18s;
-  font-family: 'Inter', sans-serif;
-  display: block;
-  text-align: center;
-  letter-spacing: 0.01em;
-}
-.cancel-crop-btn:hover, .cancel-crop-btn:focus {
-  background: #b71c3a;
-}
-
-@media (max-width: 1023px) {
-  .fab-crop-btn {
-    width: 48px;
-    height: 48px;
-    right: 12px;
-    bottom: 12px;
+@supports (-webkit-touch-callout: none) {
+  #cropperModal {
+    height: -webkit-fill-available !important;
   }
-  .fab-crop-btn svg {
-    width: 24px;
-    height: 24px;
-  }
-}
-
-.cropper-rotate-slider {
-  width: 90vw;
-  max-width: 400px;
-  margin: 0 auto 18px auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.cropper-rotate-slider label {
-  color: #fff;
-  font-weight: 600;
-  margin-bottom: 6px;
-  font-size: 1.05rem;
-}
-.cropper-rotate-slider input[type="range"] {
-  width: 100%;
-  margin: 0;
-  accent-color: #131AF9;
-}
-.cropper-rotate-slider span {
-  color: #fff;
-  margin-top: 4px;
-  font-size: 1.02rem;
-  font-weight: 500;
 }
 
 #cropperModal {
@@ -1146,62 +1081,5 @@ option {
   .cancel-crop-btn {
     min-height: 54px;
     font-size: 1rem;
-  }
-}
-
-/* Crop Button Styles */
-.fab-crop-btn {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #131AF9;
-  color: #fff;
-  border: none;
-  box-shadow: 0 4px 16px rgba(19,26,249,0.18);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-  transition: background 0.18s, box-shadow 0.18s;
-}
-
-.fab-crop-btn:hover {
-  background: #0d1280;
-  box-shadow: 0 6px 24px rgba(19,26,249,0.28);
-}
-
-.fab-crop-btn svg {
-  width: 28px;
-  height: 28px;
-}
-
-@media (max-width: 767px) {
-  .fab-crop-btn {
-    bottom: 12px;
-    right: 12px;
-    width: 48px;
-    height: 48px;
-  }
-  
-  .fab-crop-btn svg {
-    width: 24px;
-    height: 24px;
-  }
-}
-
-/* Hide crop button on desktop */
-@media (min-width: 1024px) {
-  .fab-crop-btn {
-    display: none;
-  }
-}
-
-@supports (-webkit-touch-callout: none) {
-  #cropperModal {
-    height: -webkit-fill-available !important;
   }
 }
