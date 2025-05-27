@@ -1041,10 +1041,134 @@ option {
   width: 100vw;
   height: 100vh;
   z-index: 99999 !important;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.95);
   display: none;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   flex-direction: column;
-  overflow: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 0;
+  box-sizing: border-box;
+}
+
+#cropperImage {
+  max-width: 96vw;
+  max-height: 60vh;
+  display: block;
+  margin: 0 auto;
+  background: #fff;
+}
+
+/* Ensure proper spacing between elements */
+.cropper-container {
+  margin: 16px auto;
+  max-width: 96vw;
+  width: 100%;
+}
+
+.cropper-rotate-slider {
+  width: 90vw;
+  max-width: 400px;
+  margin: 16px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.cropper-rotate-slider label {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: 1.05rem;
+}
+
+.cropper-rotate-slider input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: #131AF9;
+}
+
+.cropper-rotate-slider span {
+  color: #fff;
+  margin-top: 8px;
+  font-size: 1.02rem;
+  font-weight: 500;
+}
+
+.cropper-modal-btns {
+  width: 90vw;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+#applyCropBtn.download-button {
+  width: 100%;
+  margin: 0;
+  min-height: 48px;
+}
+
+.cancel-crop-btn {
+  width: 100%;
+  margin: 0;
+  padding: 14px 0;
+  background: #e5396a;
+  color: #fff;
+  border: none;
+  border-radius: 0;
+  font-weight: 700;
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.18s;
+  font-family: 'Inter', sans-serif;
+  display: block;
+  text-align: center;
+  letter-spacing: 0.01em;
+  min-height: 48px;
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 767px) {
+  #cropperModal {
+    padding: 8px 0;
+  }
+
+  #cropperImage {
+    max-height: 50vh; /* Reduced height on mobile */
+  }
+
+  .cropper-container {
+    margin: 12px auto;
+  }
+
+  .cropper-rotate-slider {
+    margin: 12px auto;
+  }
+
+  .cropper-modal-btns {
+    margin: 12px auto;
+    gap: 8px;
+  }
+
+  /* Ensure buttons are easily tappable */
+  #applyCropBtn.download-button,
+  .cancel-crop-btn {
+    min-height: 54px;
+    font-size: 1rem;
+  }
+}
+
+/* Fix for iOS Safari */
+@supports (-webkit-touch-callout: none) {
+  #cropperModal {
+    height: -webkit-fill-available;
+  }
 }
