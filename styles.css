@@ -920,8 +920,8 @@ option {
 
 /* Floating Crop Button (FAB) */
 .fab-crop-btn {
-  position: absolute;
-  bottom: 24px;
+  position: fixed;
+  bottom: calc(30vh + 24px); /* Position it above the bottom panel (30vh) with padding */
   right: 24px;
   width: 56px;
   height: 56px;
@@ -938,26 +938,36 @@ option {
   transition: background 0.18s, box-shadow 0.18s;
   outline: none;
 }
+
 .fab-crop-btn:hover, .fab-crop-btn:focus {
   background: #0d1280;
   box-shadow: 0 6px 24px rgba(19,26,249,0.28);
 }
+
 .fab-crop-btn svg {
   display: block;
   width: 28px;
   height: 28px;
   stroke: #fff;
 }
+
 @media (max-width: 600px) {
   .fab-crop-btn {
+    bottom: calc(30vh + 16px); /* Slightly less padding on smaller screens */
+    right: 16px;
     width: 48px;
     height: 48px;
-    bottom: 12px;
-    right: 12px;
   }
   .fab-crop-btn svg {
     width: 24px;
     height: 24px;
+  }
+}
+
+/* Ensure the button is hidden on desktop */
+@media (min-width: 1024px) {
+  .fab-crop-btn {
+    display: none !important;
   }
 }
 
