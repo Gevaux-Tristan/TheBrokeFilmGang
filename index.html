@@ -49,67 +49,103 @@
         </div>
       </div>
       <div class="settings-group">
-        <label for="filmSelect">Film</label>
-        <select id="filmSelect">
-          <optgroup label="Kodak">
-            <option value="kodak_portra_160" selected>Portra 160</option>
-            <option value="kodak_ektar_100">Ektar 100</option>
-            <option value="kodak_gold_200">Gold 200</option>
-            <option value="kodak_colorplus_200">ColorPlus 200</option>
-            <option value="kodak_trix_400">Tri-X 400</option>
-            <option value="kodak_vision">Vision3 250D</option>
-          </optgroup>
-          <optgroup label="Fujifilm">
-            <option value="fuji_pro">Pro 400H</option>
-          </optgroup>
-          <optgroup label="Kentmere">
-            <option value="kentmere">Kentmere 400</option>
-          </optgroup>
-          <optgroup label="Lomography">
-            <option value="lomography_cn">CN 800</option>
-          </optgroup>
-          <optgroup label="Agfa">
-            <option value="agfa_vista_200">Vista 200</option>
-            <option value="agfa_apx_100">APX 100</option>
-          </optgroup>
-          <optgroup label="Ilford">
-            <option value="ilford_hp5_plus_400">HP5 Plus 400</option>
-            <option value="ilford_delta_400">Delta 400</option>
-            <option value="ilford_pan_f_plus_50">Pan F Plus 50</option>
-          </optgroup>
-          <optgroup label="Cinematic">
-            <option value="atlas_hues">Cinematic-01</option>
-            <option value="blue_noir">Cinematic-02</option>
-            <option value="horizons">Cinematic-03</option>
-          </optgroup>
-          <optgroup label="Travel">
-            <option value="travel_03">Travel-01</option>
-            <option value="travel_06">Travel-02</option>
-            <option value="travel_13">Travel-03</option>
-          </optgroup>
-          <optgroup label="Documentary">
-            <option value="Documentary_01">Documentary 01</option>
-            <option value="Documentary_02">Documentary 02</option>
-            <option value="Documentary_03">Documentary 03</option>
-          </optgroup>
-          <optgroup label="Cross Process">
-            <option value="CROSS_PROCESS_01">Cross Process 01</option>
-            <option value="CROSS_PROCESS_02">Cross Process 02</option>
-            <option value="CROSS_PROCESS_03">Cross Process 03</option>
-          </optgroup>
-          <optgroup label="Dynamic Rangers">
-            <option value="DYNAMIC_RANGER_01">Dynamic Ranger 01</option>
-            <option value="DYNAMIC_RANGER_02">Dynamic Ranger 02</option>
-            <option value="DYNAMIC_RANGER_03">Dynamic Ranger 03</option>
-          </optgroup>
-          <optgroup label="Futuristic">
-            <option value="Euphoria">Euphoria</option>
-            <option value="Lava Lamp">Lava Lamp</option>
-            <option value="Nebula Flux">Nebula Flux</option>
-            <option value="Synesthesia">Synesthesia</option>
-            <option value="CHROMATIC">Chromatic</option>
-          </optgroup>
-        </select>
+        <label for="lutAccordion">Film</label>
+        <div id="lutAccordion" class="lut-accordion">
+          <div class="accordion-category" data-category="Kodak">
+            <button class="accordion-header">Kodak</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="kodak_portra_160">Portra 160</button>
+              <button class="lut-option" data-value="kodak_ektar_100">Ektar 100</button>
+              <button class="lut-option" data-value="kodak_gold_200">Gold 200</button>
+              <button class="lut-option" data-value="kodak_colorplus_200">ColorPlus 200</button>
+              <button class="lut-option" data-value="kodak_trix_400">Tri-X 400</button>
+              <button class="lut-option" data-value="kodak_vision">Vision3 250D</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Fujifilm">
+            <button class="accordion-header">Fujifilm</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="fuji_pro">Pro 400H</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Kentmere">
+            <button class="accordion-header">Kentmere</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="kentmere">Kentmere 400</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Lomography">
+            <button class="accordion-header">Lomography</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="lomography_cn">CN 800</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Agfa">
+            <button class="accordion-header">Agfa</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="agfa_vista_200">Vista 200</button>
+              <button class="lut-option" data-value="agfa_apx_100">APX 100</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Ilford">
+            <button class="accordion-header">Ilford</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="ilford_hp5_plus_400">HP5 Plus 400</button>
+              <button class="lut-option" data-value="ilford_delta_400">Delta 400</button>
+              <button class="lut-option" data-value="ilford_pan_f_plus_50">Pan F Plus 50</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Cinematic">
+            <button class="accordion-header">Cinematic</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="atlas_hues">Cinematic-01</button>
+              <button class="lut-option" data-value="blue_noir">Cinematic-02</button>
+              <button class="lut-option" data-value="horizons">Cinematic-03</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Travel">
+            <button class="accordion-header">Travel</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="travel_03">Travel-01</button>
+              <button class="lut-option" data-value="travel_06">Travel-02</button>
+              <button class="lut-option" data-value="travel_13">Travel-03</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Documentary">
+            <button class="accordion-header">Documentary</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="Documentary_01">Documentary 01</button>
+              <button class="lut-option" data-value="Documentary_02">Documentary 02</button>
+              <button class="lut-option" data-value="Documentary_03">Documentary 03</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Cross Process">
+            <button class="accordion-header">Cross Process</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="CROSS_PROCESS_01">Cross Process 01</button>
+              <button class="lut-option" data-value="CROSS_PROCESS_02">Cross Process 02</button>
+              <button class="lut-option" data-value="CROSS_PROCESS_03">Cross Process 03</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Dynamic Rangers">
+            <button class="accordion-header">Dynamic Rangers</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="DYNAMIC_RANGER_01">Dynamic Ranger 01</button>
+              <button class="lut-option" data-value="DYNAMIC_RANGER_02">Dynamic Ranger 02</button>
+              <button class="lut-option" data-value="DYNAMIC_RANGER_03">Dynamic Ranger 03</button>
+            </div>
+          </div>
+          <div class="accordion-category" data-category="Futuristic">
+            <button class="accordion-header">Futuristic</button>
+            <div class="accordion-panel">
+              <button class="lut-option" data-value="Euphoria">Euphoria</button>
+              <button class="lut-option" data-value="Lava Lamp">Lava Lamp</button>
+              <button class="lut-option" data-value="Nebula Flux">Nebula Flux</button>
+              <button class="lut-option" data-value="Synesthesia">Synesthesia</button>
+              <button class="lut-option" data-value="CHROMATIC">Chromatic</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="settings-group">
         <div class="slider-container">
