@@ -1291,8 +1291,10 @@ const cropperModal = document.getElementById('cropperModal');
 const cropperImage = document.getElementById('cropperImage');
 const applyCropBtn = document.getElementById('applyCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
+const rotateLeftBtn = document.getElementById('rotateLeftBtn');
+const rotateRightBtn = document.getElementById('rotateRightBtn');
 
-if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn) {
+if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && rotateLeftBtn && rotateRightBtn) {
   cropBtn.addEventListener('click', () => {
     console.log('[Crop] Crop button clicked');
     console.log('[Crop] fullResImage:', fullResImage);
@@ -1357,6 +1359,14 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn) {
       cropper = null;
     }
     cropperModal.style.display = 'none';
+  });
+
+  rotateLeftBtn.addEventListener('click', () => {
+    if (cropper) cropper.rotate(-90);
+  });
+
+  rotateRightBtn.addEventListener('click', () => {
+    if (cropper) cropper.rotate(90);
   });
 }
 // --- End Cropper.js Integration ---

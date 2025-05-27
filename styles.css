@@ -994,3 +994,19 @@ option {
     height: 24px;
   }
 }
+
+.cropper-rotate-btns {
+  width: 90vw;
+  max-width: 400px;
+  display: flex;
+  flex-direction: row;
+  gap: 14px;
+  margin: 0 auto 18px auto;
+  justify-content: center;
+}
+.cropper-rotate-btns .download-button {
+  width: 100%;
+  margin: 0;
+  font-size: 1.05rem;
+  padding: 12px 0;
+}
