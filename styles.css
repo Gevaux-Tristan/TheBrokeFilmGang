@@ -1053,45 +1053,41 @@ option {
   z-index: 99999 !important;
   background: rgba(0,0,0,0.95);
   display: none;
-  align-items: flex-start;
-  justify-content: center;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 16px 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
 #cropperImage {
-  max-width: 96vw;
-  max-height: 60vh;
-  display: block;
-  margin: 0 auto;
-  background: #fff;
-}
-
-/* Ensure proper spacing between elements */
-.cropper-container {
-  margin: 16px auto;
-  max-width: 96vw;
+  max-width: 100vw;
+  max-height: 50vh;
   width: 100%;
+  display: block;
+  margin: 0;
+  background: #fff;
+  border-bottom: 2px solid #222;
 }
 
 .cropper-rotate-slider {
-  width: 90vw;
-  max-width: 400px;
-  margin: 16px auto;
+  width: 100%;
+  max-width: 100vw;
+  margin: 0;
+  padding: 18px 16px 0 16px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0 16px;
-  box-sizing: border-box;
+  background: transparent;
 }
 
 .cropper-rotate-slider label {
   color: #fff;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   font-size: 1.05rem;
 }
 
@@ -1109,14 +1105,15 @@ option {
 }
 
 .cropper-modal-btns {
-  width: 90vw;
-  max-width: 400px;
+  width: 100%;
+  max-width: 100vw;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 16px auto;
-  padding: 0 16px;
+  margin: 0;
+  padding: 18px 16px 24px 16px;
   box-sizing: border-box;
+  background: transparent;
 }
 
 #applyCropBtn.download-button {
@@ -1145,30 +1142,17 @@ option {
   min-height: 48px;
 }
 
-/* Mobile-specific adjustments */
 @media (max-width: 767px) {
-  #cropperModal {
-    padding: 8px 0;
-  }
-
   #cropperImage {
-    max-height: 50vh; /* Reduced height on mobile */
+    max-height: 40vh;
   }
-
-  .cropper-container {
-    margin: 12px auto;
-  }
-
   .cropper-rotate-slider {
-    margin: 12px auto;
+    padding: 12px 8px 0 8px;
   }
-
   .cropper-modal-btns {
-    margin: 12px auto;
+    padding: 12px 8px 18px 8px;
     gap: 8px;
   }
-
-  /* Ensure buttons are easily tappable */
   #applyCropBtn.download-button,
   .cancel-crop-btn {
     min-height: 54px;
@@ -1176,7 +1160,6 @@ option {
   }
 }
 
-/* Fix for iOS Safari */
 @supports (-webkit-touch-callout: none) {
   #cropperModal {
     height: -webkit-fill-available;
