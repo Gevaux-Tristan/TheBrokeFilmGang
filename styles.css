@@ -531,7 +531,12 @@ option {
   }
 }
 
-/* --- OPTIMISATIONS MOBILE --- */
+@media (min-width: 1024px) {
+  #cropBtn {
+    display: none !important;
+  }
+}
+
 @media (max-width: 1023px) {
   .app-layout {
     flex-direction: column;
@@ -659,6 +664,10 @@ option {
   .fab-crop-btn svg {
     width: 24px;
     height: 24px;
+  }
+
+  #cropBtn {
+    display: flex !important;
   }
 }
 
