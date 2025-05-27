@@ -1052,7 +1052,7 @@ option {
   height: 100vh !important;
   z-index: 99999 !important;
   background: rgba(0,0,0,0.95) !important;
-  display: none !important;
+  display: none;
   flex-direction: column !important;
   align-items: stretch !important;
   justify-content: flex-start !important;
