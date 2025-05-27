@@ -921,8 +921,8 @@ option {
 /* Floating Crop Button (FAB) */
 .fab-crop-btn {
   position: fixed;
-  bottom: calc(30vh + 24px); /* Position it above the bottom panel (30vh) with padding */
-  right: 24px;
+  bottom: 20px !important;
+  right: 20px !important;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -953,8 +953,8 @@ option {
 
 @media (max-width: 600px) {
   .fab-crop-btn {
-    bottom: calc(30vh + 16px); /* Slightly less padding on smaller screens */
-    right: 16px;
+    bottom: 20px !important;
+    right: 20px !important;
     width: 48px;
     height: 48px;
   }
