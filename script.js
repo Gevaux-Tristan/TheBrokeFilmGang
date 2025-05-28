@@ -1301,6 +1301,9 @@ if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && ro
     
     if (!fullResImage) return;
 
+    // Hide the crop button
+    cropBtn.style.display = 'none';
+
     // Show the crop interface
     cropInterface.classList.add('active');
     
@@ -1368,6 +1371,8 @@ if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && ro
       cropper = null;
     }
     cropInterface.classList.remove('active');
+    // Show the crop button again
+    cropBtn.style.display = 'flex';
   });
 
   cancelCropBtn.addEventListener('click', () => {
@@ -1376,6 +1381,8 @@ if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && ro
       cropper = null;
     }
     cropInterface.classList.remove('active');
+    // Show the crop button again
+    cropBtn.style.display = 'flex';
   });
 }
 // --- End Inline Crop Interface ---
