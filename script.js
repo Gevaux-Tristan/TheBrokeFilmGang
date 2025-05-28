@@ -1302,7 +1302,7 @@ if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && ro
     if (!fullResImage) return;
 
     // Hide the crop button
-    cropBtn.style.display = 'none';
+    cropBtn.classList.add('hidden');
 
     // Show the crop interface
     cropInterface.classList.add('active');
@@ -1372,7 +1372,7 @@ if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && ro
     }
     cropInterface.classList.remove('active');
     // Show the crop button again
-    cropBtn.style.display = 'flex';
+    cropBtn.classList.remove('hidden');
   });
 
   cancelCropBtn.addEventListener('click', () => {
@@ -1382,7 +1382,7 @@ if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && ro
     }
     cropInterface.classList.remove('active');
     // Show the crop button again
-    cropBtn.style.display = 'flex';
+    cropBtn.classList.remove('hidden');
   });
 }
 // --- End Inline Crop Interface ---
