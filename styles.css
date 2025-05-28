@@ -1022,7 +1022,7 @@ option {
 
 /* Crop Button */
 .fab-crop-btn {
-  position: fixed;
+  position: absolute;
   bottom: 20px;
   right: 20px;
   width: 56px;
@@ -1203,7 +1203,7 @@ option {
 
 /* Crop Button */
 .fab-crop-btn {
-  position: fixed;
+  position: absolute;
   bottom: 20px;
   right: 20px;
   width: 56px;
