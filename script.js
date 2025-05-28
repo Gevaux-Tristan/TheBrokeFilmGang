@@ -1284,68 +1284,44 @@ if (cameraBtn && cameraCapture) {
   });
 }
 
-// --- Cropper.js Integration ---
+// --- Inline Crop Interface ---
 let cropper = null;
 const cropBtn = document.getElementById('cropBtn');
-const cropperModal = document.getElementById('cropperModal');
-const cropperImage = document.getElementById('cropperImage');
+const cropInterface = document.querySelector('.crop-interface');
+const cropImage = document.getElementById('cropImage');
 const applyCropBtn = document.getElementById('applyCropBtn');
 const cancelCropBtn = document.getElementById('cancelCropBtn');
-const cropRotateSlider = document.getElementById('cropRotateSlider');
-const cropRotateValue = document.getElementById('cropRotateValue');
+const rotateSlider = document.getElementById('rotateSlider');
+const rotateValue = document.getElementById('rotateValue');
 
-if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && cropRotateSlider && cropRotateValue) {
+if (cropBtn && cropInterface && cropImage && applyCropBtn && cancelCropBtn && rotateSlider && rotateValue) {
   cropBtn.addEventListener('click', (e) => {
-    e.preventDefault(); // Prevent default touch behavior
-    e.stopPropagation(); // Stop event bubbling
+    e.preventDefault();
+    e.stopPropagation();
     
-    console.log('[Crop DEBUG] Crop button clicked!');
-    console.log('[Crop DEBUG] User agent:', navigator.userAgent);
-    console.log('[Crop DEBUG] fullResImage exists:', !!fullResImage);
-    console.log('[Crop DEBUG] originalImageDataUrl exists:', !!originalImageDataUrl);
-    console.log('[Crop DEBUG] Modal display before:', cropperModal.style.display);
-    
-    if (!fullResImage) {
-      console.log('[Crop DEBUG] No image loaded, returning');
-      return;
-    }
+    if (!fullResImage) return;
 
-    // Force modal to be visible and on top
-    cropperModal.style.display = 'flex';
-    cropperModal.style.zIndex = '99999';
-    cropperModal.style.position = 'fixed';
-    cropperModal.style.top = '0';
-    cropperModal.style.left = '0';
-    cropperModal.style.width = '100%';
-    cropperModal.style.height = '100%';
-    cropperModal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
-    cropperModal.style.overflow = 'auto';
-    
-    console.log('[Crop DEBUG] Modal display after:', cropperModal.style.display);
+    // Show the crop interface
+    cropInterface.classList.add('active');
     
     // Set image src to current preview
     if (originalImageDataUrl) {
-      console.log('[Crop DEBUG] Using original image');
-      cropperImage.src = originalImageDataUrl;
+      cropImage.src = originalImageDataUrl;
     } else {
-      console.log('[Crop DEBUG] Using canvas image');
-      cropperImage.src = canvas.toDataURL('image/png');
+      cropImage.src = canvas.toDataURL('image/png');
     }
 
     // Reset rotation slider
-    cropRotateSlider.value = 0;
-    cropRotateValue.textContent = '0°';
+    rotateSlider.value = 0;
+    rotateValue.textContent = '0°';
 
     // Wait for image to load, then initialize cropper
-    cropperImage.onload = () => {
-      console.log('[Crop DEBUG] Image loaded in modal');
+    cropImage.onload = () => {
       if (cropper) {
-        console.log('[Crop DEBUG] Destroying existing cropper');
         cropper.destroy();
       }
       
-      console.log('[Crop DEBUG] Initializing new cropper');
-      cropper = new Cropper(cropperImage, {
+      cropper = new Cropper(cropImage, {
         viewMode: 1,
         background: false,
         autoCropArea: 1,
@@ -1361,22 +1337,15 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && 
         cropBoxResizable: true,
         cropBoxMovable: true,
         minContainerWidth: 320,
-        minContainerHeight: 240,
-        ready: function() {
-          console.log('[Crop DEBUG] Cropper initialized successfully');
-        }
+        minContainerHeight: 240
       });
 
       // Set up free rotation
-      cropRotateSlider.addEventListener('input', function() {
+      rotateSlider.addEventListener('input', function() {
         const angle = parseInt(this.value, 10);
         cropper.rotateTo(angle);
-        cropRotateValue.textContent = angle + '°';
+        rotateValue.textContent = angle + '°';
       });
-    };
-
-    cropperImage.onerror = (error) => {
-      console.error('[Crop DEBUG] Error loading image in modal:', error);
     };
   });
 
@@ -1398,7 +1367,7 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && 
       cropper.destroy();
       cropper = null;
     }
-    cropperModal.style.display = 'none';
+    cropInterface.classList.remove('active');
   });
 
   cancelCropBtn.addEventListener('click', () => {
@@ -1406,10 +1375,10 @@ if (cropBtn && cropperModal && cropperImage && applyCropBtn && cancelCropBtn && 
       cropper.destroy();
       cropper = null;
     }
-    cropperModal.style.display = 'none';
+    cropInterface.classList.remove('active');
   });
 }
-// --- End Cropper.js Integration ---
+// --- End Inline Crop Interface ---
 
 function positionCropBtn() {
   const cropBtn = document.getElementById('cropBtn');

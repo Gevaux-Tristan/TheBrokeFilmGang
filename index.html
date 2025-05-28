@@ -28,6 +28,25 @@
             <span>or click to select</span>
           </div>
         </div>
+        
+        <!-- New inline crop interface -->
+        <div class="crop-interface">
+          <div class="crop-preview">
+            <img id="cropImage" src="" alt="Crop preview">
+          </div>
+          <div class="crop-controls">
+            <div class="rotate-control">
+              <label>Rotate</label>
+              <input type="range" id="rotateSlider" min="-180" max="180" value="0">
+              <span id="rotateValue">0°</span>
+            </div>
+            <div class="crop-buttons">
+              <button class="apply-crop" id="applyCropBtn">Apply</button>
+              <button class="cancel-crop" id="cancelCropBtn">Cancel</button>
+            </div>
+          </div>
+        </div>
+        
         <button id="cropBtn" class="fab-crop-btn" title="Crop">
           <svg xmlns="http://www.w3.org/2000/svg" height="28" width="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 2v16a2 2 0 0 0 2 2h16"/>
