@@ -326,73 +326,59 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     // Draw the original image with high quality
     exportCtx.drawImage(fullResImage, 0, 0, exportWidth, exportHeight);
 
-    // Process effects in chunks for better performance
-    const processChunk = async (startY, chunkHeight) => {
-      const imgData = exportCtx.getImageData(0, startY, exportWidth, chunkHeight);
-      const data = imgData.data;
-      const originalData = new Uint8ClampedArray(data);
+    // Use the same processing pipeline as preview
+    const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
+    const data = imgData.data;
+    const originalData = new Uint8ClampedArray(data);
 
-      // Apply LUT with higher precision
-      if (lutData && lutIntensity > 0) {
+    // Apply LUT first if present and intensity > 0
+    if (lutData && lutIntensity > 0) {
+      try {
         for (let i = 0; i < data.length; i += 4) {
           const r = originalData[i] / 255;
           const g = originalData[i + 1] / 255;
           const b = originalData[i + 2] / 255;
+
           const newColor = trilinearLUTLookup(lutData, r, g, b);
+          
           data[i] = Math.round(originalData[i] * (1 - lutIntensity) + newColor[0] * 255 * lutIntensity);
           data[i + 1] = Math.round(originalData[i + 1] * (1 - lutIntensity) + newColor[1] * 255 * lutIntensity);
           data[i + 2] = Math.round(originalData[i + 2] * (1 - lutIntensity) + newColor[2] * 255 * lutIntensity);
         }
+      } catch (error) {
+        console.error("Error applying LUT:", error);
+        data.set(originalData);
       }
-
-      // Apply exposure and contrast with higher precision
-      if (exposureAmount !== 0 || contrastAmount !== 0) {
-        for (let i = 0; i < data.length; i += 4) {
-          let r = data[i] / 255;
-          let g = data[i + 1] / 255;
-          let b = data[i + 2] / 255;
-          
-          if (exposureAmount !== 0) {
-            const exposureFactor = Math.pow(2, exposureAmount);
-            r = Math.min(1, Math.max(0, r * exposureFactor));
-            g = Math.min(1, Math.max(0, g * exposureFactor));
-            b = Math.min(1, Math.max(0, b * exposureFactor));
-          }
-          
-          if (contrastAmount !== 0) {
-            const contrastFactor = contrastAmount / 100;
-            r = applyContrast(r, contrastFactor);
-            g = applyContrast(g, contrastFactor);
-            b = applyContrast(b, contrastFactor);
-          }
-          
-          data[i] = Math.round(r * 255);
-          data[i + 1] = Math.round(g * 255);
-          data[i + 2] = Math.round(b * 255);
-        }
-      }
-
-      exportCtx.putImageData(imgData, 0, startY);
-    };
-
-    // Process image in chunks on mobile
-    if (isMobile) {
-      const CHUNK_SIZE = 200; // Increased from 100 for better quality
-      for (let y = 0; y < exportHeight; y += CHUNK_SIZE) {
-        const chunkHeight = Math.min(CHUNK_SIZE, exportHeight - y);
-        await processChunk(y, chunkHeight);
-      }
-    } else {
-      await processChunk(0, exportHeight);
     }
 
-    // Apply lens blur if enabled
+    // Apply contrast
+    if (contrastAmount !== 0) {
+      const factor = (259 * (contrastAmount + 255)) / (255 * (259 - contrastAmount));
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = factor * (data[i] - 128) + 128;
+        data[i + 1] = factor * (data[i + 1] - 128) + 128;
+        data[i + 2] = factor * (data[i + 2] - 128) + 128;
+      }
+    }
+
+    // Apply exposure
+    if (exposureAmount !== 0) {
+      const factor = Math.pow(2, exposureAmount);
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = Math.min(255, data[i] * factor);
+        data[i + 1] = Math.min(255, data[i + 1] * factor);
+        data[i + 2] = Math.min(255, data[i + 2] * factor);
+      }
+    }
+
+    exportCtx.putImageData(imgData, 0, 0);
+
+    // Apply lens blur
     if (blurAmount > 0) {
-      console.log('Applying lens blur with amount:', blurAmount);
       applyLensBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
-    // Apply grain with higher quality
+    // Apply enhanced grain
     if (selectedISO > 0) {
       const grainAmount = selectedISO;
       addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
