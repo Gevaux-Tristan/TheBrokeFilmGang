@@ -373,15 +373,14 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
     exportCtx.putImageData(imgData, 0, 0);
 
-    // Apply lens blur
+    // Apply lens blur using the same function as preview
     if (blurAmount > 0) {
       applyLensBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
-    // Apply enhanced grain
+    // Apply grain using the same function as preview
     if (selectedISO > 0) {
-      const grainAmount = selectedISO;
-      addGrain(exportCtx, exportWidth, exportHeight, grainAmount);
+      addGrain(exportCtx, exportWidth, exportHeight, selectedISO);
     }
 
     // Generate filename
