@@ -210,7 +210,7 @@ function processImageEffects(ctx, width, height, isExport = false) {
   }
 
   // Apply exposure
-  if (exposureAmount !== 0) {
+      if (exposureAmount !== 0) {
     const factor = Math.pow(2, exposureAmount);
     for (let i = 0; i < data.length; i += 4) {
       data[i] = Math.min(255, data[i] * factor);
@@ -328,11 +328,11 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
     // Use the same processing pipeline as preview
     const imgData = exportCtx.getImageData(0, 0, exportWidth, exportHeight);
-    const data = imgData.data;
-    const originalData = new Uint8ClampedArray(data);
+      const data = imgData.data;
+      const originalData = new Uint8ClampedArray(data);
 
     // Apply LUT first if present and intensity > 0
-    if (lutData && lutIntensity > 0) {
+      if (lutData && lutIntensity > 0) {
       try {
         for (let i = 0; i < data.length; i += 4) {
           const r = originalData[i] / 255;
@@ -352,7 +352,7 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
     }
 
     // Apply contrast
-    if (contrastAmount !== 0) {
+          if (contrastAmount !== 0) {
       const factor = (259 * (contrastAmount + 255)) / (255 * (259 - contrastAmount));
       for (let i = 0; i < data.length; i += 4) {
         data[i] = factor * (data[i] - 128) + 128;
