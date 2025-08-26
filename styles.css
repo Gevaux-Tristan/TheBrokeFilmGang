@@ -33,7 +33,7 @@ body {
 
 .app-layout {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100%;
   gap: 0;
   padding: 0;
@@ -43,7 +43,7 @@ body {
 }
 
 .left-panel {
-  flex: 0 0 70vh;
+  flex: 1;
   background: var(--background-color);
   border-radius: 0;
   box-shadow: none;
@@ -51,12 +51,11 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .right-panel {
-  flex: 0 0 30vh;
-  width: 100%;
-  min-width: unset;
+  width: 320px;
   background: var(--panel-background);
   border-radius: 0;
   box-shadow: none;
@@ -66,17 +65,11 @@ body {
   gap: 28px;
   align-items: flex-start;
   justify-content: flex-start;
-  border-left: none;
-  border-top: 1.5px solid #e0e3f7;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  border-left: 1.5px solid #e0e3f7;
   overflow-y: auto;
-  max-height: 30vh;
   box-sizing: border-box;
-  -webkit-overflow-scrolling: touch; /* Momentum-based scrolling for iOS */
-  z-index: 20; /* Ensure settings panel is above other elements like dropZone */
+  -webkit-overflow-scrolling: touch;
+  z-index: 20;
 }
 
 .preview-wrapper {
@@ -88,12 +81,12 @@ body {
   background: var(--background-color);
   border-radius: 0;
   overflow: hidden;
-  height: 70vh;
+  height: 100%;
 }
 
 #previewCanvas {
   max-width: 100%;
-  max-height: 70vh;
+  max-height: 100%;
   object-fit: contain;
 }
 
@@ -194,6 +187,44 @@ select:focus {
   width: 100%;
 }
 
+.exposure-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intensity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intensity-row input[type="range"] {
+  flex: 1;
+}
+
+.intensity-row span {
+  min-width: 50px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.blur-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.blur-row input[type="range"] {
+  flex: 1;
+}
+
+.blur-row span {
+  min-width: 50px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* --- SLIDERS FIDÈLES FIGMA, CROSS-BROWSER --- */
 input[type="range"] {
   width: 100%;
@@ -204,14 +235,18 @@ input[type="range"] {
   box-sizing: border-box;
   appearance: none;
   -webkit-appearance: none;
-  pointer-events: none; /* Make track non-interactive by default (for mobile) */
+  pointer-events: none;
+  position: relative;
 }
+
 /* Webkit (Chrome, Safari) */
 input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
   background: #131AF9;
   border-radius: 0;
+  margin: 19px 0;
 }
+
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
@@ -220,25 +255,21 @@ input[type="range"]::-webkit-slider-thumb {
   background: #131AF9;
   border-radius: 50%;
   border: 2px solid #fff;
-  margin-top: -11px; /* (thumb height - track height)/2 */
+  margin-top: -11px;
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
-  pointer-events: auto; /* Ensure thumb is interactive */
+  pointer-events: auto;
 }
-input[type="range"]:focus::-webkit-slider-thumb {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-}
-input[type="range"]:hover::-webkit-slider-thumb {
-  background: #0d1280;
-}
+
 /* Firefox */
 input[type="range"]::-moz-range-track {
   height: 2px;
   background: #131AF9;
   border-radius: 0;
+  margin: 19px 0;
 }
+
 input[type="range"]::-moz-range-thumb {
   width: 24px;
   height: 24px;
@@ -248,24 +279,18 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
   box-shadow: none;
   transition: background 0.2s;
-  pointer-events: auto; /* Ensure thumb is interactive */
+  pointer-events: auto;
 }
-input[type="range"]:focus::-moz-range-thumb {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
-}
-input[type="range"]:hover::-moz-range-thumb {
-  background: #0d1280;
-}
+
 /* IE/Edge */
-input[type="range"]::-ms-fill-lower {
-  background: #131AF9;
-  border-radius: 0;
-}
+input[type="range"]::-ms-fill-lower,
 input[type="range"]::-ms-fill-upper {
+  height: 2px;
   background: #131AF9;
   border-radius: 0;
+  margin: 19px 0;
 }
+
 input[type="range"]::-ms-thumb {
   width: 24px;
   height: 24px;
@@ -276,25 +301,84 @@ input[type="range"]::-ms-thumb {
   box-shadow: none;
   transition: background 0.2s;
   margin-top: 0;
-  pointer-events: auto; /* Ensure thumb is interactive */
+  pointer-events: auto;
 }
-input[type="range"]:focus::-ms-thumb {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
+
+/* Optimisations mobile */
+@media (max-width: 1023px) {
+  input[type="range"] {
+    height: 32px;
+    margin: 0;
+    padding: 0;
+  }
+
+  input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    margin: 15px 0;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 32px;
+    height: 32px;
+    margin-top: -15px;
+  }
+
+  input[type="range"]::-moz-range-track {
+    height: 2px;
+    margin: 15px 0;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 32px;
+    height: 32px;
+  }
+
+  input[type="range"]::-ms-track {
+    height: 2px;
+    margin: 15px 0;
+  }
+
+  input[type="range"]::-ms-thumb {
+    width: 32px;
+    height: 32px;
+  }
 }
-input[type="range"]:hover::-ms-thumb {
-  background: #0d1280;
+
+/* Remove duplicate slider styles */
+.slider-container input[type="range"] {
+  height: 40px;
+  margin: 0;
+  padding: 0;
 }
-input[type="range"]:focus {
-  outline: none;
+
+.slider-container input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  margin: 19px 0;
 }
-/* Remove default background for Firefox */
-input[type="range"] {
-  background: transparent;
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  width: 24px;
+  height: 24px;
+  margin-top: -11px;
 }
-/* Hide the outline for Firefox on focus */
-input[type="range"]::-moz-focus-outer {
-  border: 0;
+
+@media (max-width: 1023px) {
+  .slider-container input[type="range"] {
+    height: 32px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .slider-container input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    margin: 15px 0;
+  }
+
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    width: 32px;
+    height: 32px;
+    margin-top: -15px;
+  }
 }
 
 button, .download-button, .reset-button {
@@ -435,5 +519,765 @@ option {
 
   input[type="range"] {
     pointer-events: auto; /* Revert to full interactivity on desktop */
+  }
+
+  #cameraBtn,
+  #cameraCapture {
+    display: none !important;
+  }
+
+  #cropBtn {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  #cropBtn {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    flex: 0 0 70vh;
+  }
+
+  .right-panel {
+    width: 100%;
+    flex: 0 0 30vh;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-left: none;
+    border-top: 1.5px solid #e0e3f7;
+    max-height: 30vh;
+    overflow-y: auto;
+    z-index: 20;
+  }
+
+  .preview-wrapper {
+    height: 70vh;
+  }
+
+  #previewCanvas {
+    max-height: 70vh;
+  }
+
+  /* Fix dropdown behavior on mobile */
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-color: white;
+    position: relative;
+    z-index: 21;
+  }
+
+  select:focus {
+    outline: none;
+    position: relative;
+    z-index: 21;
+  }
+
+  /* Ensure the dropdown list stays within the settings panel */
+  select option {
+    position: relative;
+    z-index: 21;
+    background-color: white;
+  }
+
+  /* Container for the select element */
+  .settings-group:has(select) {
+    position: relative;
+    z-index: 21;
+    background-color: white;
+  }
+
+  /* Ensure the right panel contains the dropdown */
+  .right-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: white;
+    z-index: 20;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent the dropdown from expanding beyond its container */
+  select:active,
+  select:focus {
+    position: relative;
+    z-index: 21;
+  }
+
+  input[type="range"] {
+    touch-action: none;
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    width: 32px; /* Plus grand sur mobile pour une meilleure accessibilité */
+    height: 32px;
+    margin-top: -15px; /* (32px - 2px) / 2 pour centrer sur la ligne */
+    transform: scale(1);
+    transition: transform 0.1s ease-out;
+    will-change: transform;
+  }
+
+  input[type="range"]:active::-webkit-slider-thumb {
+    transform: scale(1.1);
+  }
+
+  /* Optimisation du rendu des curseurs sur iOS */
+  input[type="range"]::-webkit-slider-runnable-track {
+    will-change: transform;
+    transform: translateZ(0);
+  }
+
+  /* Désactiver les effets de survol sur mobile */
+  input[type="range"]:hover::-webkit-slider-thumb {
+    background: var(--primary-color);
+  }
+
+  /* Optimisation du scroll */
+  .settings-group {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  .fab-crop-btn {
+    width: 48px;
+    height: 48px;
+    right: 12px;
+    bottom: 12px;
+  }
+  .fab-crop-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  #cropBtn {
+    display: flex !important;
+  }
+}
+
+/* Amélioration de la réactivité des boutons sur mobile */
+@media (max-width: 1023px) {
+  button, .download-button, .reset-button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s ease-out;
+  }
+
+  select {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.slider-container label {
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+  min-width: auto;
+}
+
+.slider-container input[type="range"] {
+  flex: 1;
+  height: 40px;
+  background: transparent;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+
+.slider-container input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: #131AF9;
+  border-radius: 0;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  background: #131AF9;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  margin-top: -11px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.2s;
+  pointer-events: auto;
+}
+
+.slider-container input[type="range"]:focus::-webkit-slider-thumb {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(19,26,249,0.12);
+}
+
+.slider-container input[type="range"]:hover::-webkit-slider-thumb {
+  background: #0d1280;
+}
+
+.slider-container span {
+  min-width: 48px;
+  text-align: right;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--primary-color);
+}
+
+/* Supprimer les styles spécifiques des curseurs qui ne sont plus nécessaires */
+#isoSlider, #blurSlider, #lutIntensitySlider {
+  background: transparent;
+}
+
+/* Optimisations mobile */
+@media (max-width: 1023px) {
+  .slider-container input[type="range"]::-webkit-slider-thumb {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* --- Custom Dropdown Styles --- */
+.custom-dropdown {
+  position: relative;
+  width: 100%;
+  user-select: none;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  z-index: 9999;
+}
+.custom-dropdown-selected {
+  background: #fff;
+  color: #131AF9;
+  padding: 14px 16px;
+  border-radius: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 3px solid #131AF9;
+  transition: box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(19,26,249,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.custom-dropdown.open .custom-dropdown-selected,
+.custom-dropdown:focus .custom-dropdown-selected {
+  box-shadow: 0 0 0 2px rgba(19,26,249,0.18);
+}
+.custom-dropdown-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  background: #fff;
+  color: #131AF9;
+  border-radius: 0;
+  box-shadow: 0 8px 32px rgba(19,26,249,0.08);
+  z-index: 10000;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 6px;
+  border: 3px solid #131AF9;
+  padding: 0;
+  animation: dropdown-fade-in 0.18s;
+}
+@keyframes dropdown-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.custom-dropdown-optgroup {
+  padding: 0;
+  margin: 0;
+}
+.custom-dropdown-optgroup-label {
+  padding: 10px 16px 6px 16px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #131AF9;
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
+.custom-dropdown-option {
+  padding: 12px 16px;
+  font-size: 1.05rem;
+  color: #131AF9;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+  border-bottom: 1px solid #131AF9;
+  border-radius: 0;
+  background: #fff;
+}
+.custom-dropdown-option:last-child {
+  border-bottom: none;
+}
+.custom-dropdown-optgroup:not(:last-child) .custom-dropdown-option:last-child {
+  border-bottom: 2px solid #131AF9;
+}
+.custom-dropdown-option:hover,
+.custom-dropdown-option:focus {
+  background: #e6eaff;
+  color: #131AF9;
+}
+.custom-dropdown.open .custom-dropdown-list {
+  display: block !important;
+}
+
+/* Remove any rule that hides the native select */
+#filmSelect {
+  display: block !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 10;
+  background: #fff;
+  color: #131AF9;
+  border: 2px solid #131AF9;
+  border-radius: 0;
+  font-size: 1rem;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+  margin: 0;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1023px) {
+  .custom-dropdown-list {
+    max-height: 180px;
+    font-size: 1.08rem;
+  }
+  .custom-dropdown-selected {
+    font-size: 1.08rem;
+    padding: 16px 18px;
+  }
+  .custom-dropdown-optgroup-label {
+    font-size: 1.01rem;
+    padding: 12px 18px 7px 18px;
+  }
+  .custom-dropdown-option {
+    font-size: 1.08rem;
+    padding: 14px 18px;
+  }
+}
+
+@media (max-width: 1023px) {
+  .right-panel {
+    /* Remove overflow when dropdown is open to prevent clipping */
+    overflow-y: auto;
+    position: fixed;
+    z-index: 20;
+  }
+  .custom-dropdown.open ~ .slider-container,
+  .custom-dropdown.open ~ .settings-group {
+    z-index: 1;
+  }
+  .custom-dropdown.open {
+    z-index: 10001;
+  }
+  .custom-dropdown.open .custom-dropdown-list {
+    z-index: 10002;
+  }
+  .right-panel .custom-dropdown.open .custom-dropdown-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    max-height: 180px;
+    z-index: 10002;
+  }
+  /* Remove overflow when dropdown is open */
+  .right-panel:has(.custom-dropdown.open) {
+    overflow: visible !important;
+  }
+}
+
+/* Inline Crop Interface */
+.crop-interface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.crop-interface.active {
+  display: flex;
+}
+
+.crop-preview {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.crop-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.crop-controls {
+  background: #000;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rotate-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.rotate-control label {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 80px;
+}
+
+.rotate-control input[type="range"] {
+  flex: 1;
+  margin: 0;
+}
+
+.rotate-control span {
+  color: #fff;
+  font-size: 0.95rem;
+  min-width: 40px;
+  text-align: right;
+}
+
+.crop-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.crop-buttons button {
+  flex: 1;
+  min-height: 44px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apply-crop {
+  background: #131AF9;
+  color: #fff;
+}
+
+.apply-crop:hover {
+  background: #0d1280;
+}
+
+.cancel-crop {
+  background: #e5396a;
+  color: #fff;
+}
+
+.cancel-crop:hover {
+  background: #b71c3a;
+}
+
+/* Crop Button */
+.fab-crop-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #131AF9;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 16px rgba(19,26,249,0.18);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: background 0.18s, box-shadow 0.18s, opacity 0.2s;
+  opacity: 1;
+}
+
+.fab-crop-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fab-crop-btn:hover {
+  background: #0d1280;
+  box-shadow: 0 6px 24px rgba(19,26,249,0.28);
+}
+
+.fab-crop-btn svg {
+  width: 28px;
+  height: 28px;
+  stroke: #fff;
+}
+
+/* Mobile Styles */
+@media (max-width: 767px) {
+  .crop-controls {
+    padding: 12px;
+  }
+  
+  .rotate-control {
+    padding: 0 4px;
+  }
+  
+  .crop-buttons {
+    padding: 0 4px;
+  }
+  
+  .crop-buttons button {
+    min-height: 48px;
+  }
+  
+  .fab-crop-btn {
+    bottom: 12px;
+    right: 12px;
+    width: 48px;
+    height: 48px;
+  }
+  
+  .fab-crop-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Hide crop button on desktop */
+@media (min-width: 1024px) {
+  .fab-crop-btn {
+    display: none !important;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  #cropperModal {
+    height: -webkit-fill-available !important;
+  }
+}
+
+#cropperModal {
+  display: none;
+}
+
+/* Inline Crop Interface */
+.crop-interface {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.crop-interface.active {
+  display: flex;
+}
+
+.crop-preview {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.crop-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.crop-controls {
+  background: #000;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rotate-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.rotate-control label {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  min-width: 80px;
+}
+
+.rotate-control input[type="range"] {
+  flex: 1;
+  margin: 0;
+}
+
+.rotate-control span {
+  color: #fff;
+  font-size: 0.95rem;
+  min-width: 40px;
+  text-align: right;
+}
+
+.crop-buttons {
+  display: flex;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.crop-buttons button {
+  flex: 1;
+  min-height: 44px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apply-crop {
+  background: #131AF9;
+  color: #fff;
+}
+
+.apply-crop:hover {
+  background: #0d1280;
+}
+
+.cancel-crop {
+  background: #e5396a;
+  color: #fff;
+}
+
+.cancel-crop:hover {
+  background: #b71c3a;
+}
+
+/* Crop Button */
+.fab-crop-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #131AF9;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 16px rgba(19,26,249,0.18);
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: background 0.18s, box-shadow 0.18s, opacity 0.2s;
+  opacity: 1;
+}
+
+.fab-crop-btn.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fab-crop-btn:hover {
+  background: #0d1280;
+  box-shadow: 0 6px 24px rgba(19,26,249,0.28);
+}
+
+.fab-crop-btn svg {
+  width: 28px;
+  height: 28px;
+  stroke: #fff;
+}
+
+/* Mobile Styles */
+@media (max-width: 767px) {
+  .crop-controls {
+    padding: 12px;
+  }
+  
+  .rotate-control {
+    padding: 0 4px;
+  }
+  
+  .crop-buttons {
+    padding: 0 4px;
+  }
+  
+  .crop-buttons button {
+    min-height: 48px;
+  }
+  
+  .fab-crop-btn {
+    bottom: 12px;
+    right: 12px;
+    width: 48px;
+    height: 48px;
+  }
+  
+  .fab-crop-btn svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* Hide crop button on desktop */
+@media (min-width: 1024px) {
+  .fab-crop-btn {
+    display: none !important;
   }
 }

@@ -4,11 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Broke Film Gang</title>
+  <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 </head>
 <body>
   <div class="app-layout">
@@ -26,6 +29,31 @@
             <span>or click to select</span>
           </div>
         </div>
+        
+        <!-- New inline crop interface -->
+        <div class="crop-interface">
+          <div class="crop-preview">
+            <img id="cropImage" src="" alt="Crop preview">
+          </div>
+          <div class="crop-controls">
+            <div class="rotate-control">
+              <label>Rotate</label>
+              <input type="range" id="rotateSlider" min="-180" max="180" value="0">
+              <span id="rotateValue">0°</span>
+            </div>
+            <div class="crop-buttons">
+              <button class="apply-crop" id="applyCropBtn">Apply</button>
+              <button class="cancel-crop" id="cancelCropBtn">Cancel</button>
+            </div>
+          </div>
+        </div>
+        
+        <button id="cropBtn" class="fab-crop-btn" title="Crop">
+          <svg xmlns="http://www.w3.org/2000/svg" height="28" width="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 2v16a2 2 0 0 0 2 2h16"/>
+            <path d="M18 22V6a2 2 0 0 0-2-2H2"/>
+          </svg>
+        </button>
       </div>
     </div>
     <div class="right-panel">
@@ -35,64 +63,99 @@
           <input type="file" id="imageUpload" accept="image/*" style="display:none;" />
           <button id="customFileBtn" class="download-button" type="button">Upload your photo</button>
         </div>
+        <div class="file-row" style="margin-top: 10px;">
+          <input type="file" id="cameraCapture" accept="image/*" capture="environment" style="display:none;" />
+          <button id="cameraBtn" class="download-button" type="button">Take Photo</button>
+        </div>
       </div>
       <div class="settings-group">
         <label for="filmSelect">Film</label>
         <select id="filmSelect">
-          <optgroup label="Kodak">
-            <option value="kodak_portra_160" selected>Portra 160</option>
-            <option value="kodak_ektar_100">Ektar 100</option>
-            <option value="kodak_gold_200">Gold 200</option>
-            <option value="kodak_colorplus_200">ColorPlus 200</option>
-            <option value="kodak_trix_400">Tri-X 400</option>
-            <option value="kodak_tmax_100">T-Max 100</option>
+          <optgroup label="Kodak" class="custom-dropdown-optgroup" data-label="Kodak">
+            <option value="kodak_portra_160" selected>Kodak Portra 160</option>
+            <option value="kodak_ektar_100">Kodak Ektar 100</option>
+            <option value="kodak_gold_200">Kodak Gold 200</option>
+            <option value="kodak_colorplus_200">Kodak ColorPlus 200</option>
+            <option value="kodak_vision">Kodak Vision3 250D</option>
+          </optgroup>
+          <optgroup label="Fujifilm">
+            <option value="fuji_pro">Pro 400H</option>
           </optgroup>
           <optgroup label="Agfa">
             <option value="agfa_vista_200">Vista 200</option>
-            <!-- <option value="agfa_precisa_ct_100">Precisa CT 100</option> -->
-            <option value="agfa_apx_100">APX 100</option>
-            <!-- <option value="agfa_ultra_100">Agfacolor Ultra 100</option> -->
           </optgroup>
-          <optgroup label="Ilford">
+          <optgroup label="Lomography">
+            <option value="lomography_cn">CN 800</option>
+          </optgroup>
+          <optgroup label="Cinematic">
+            <option value="atlas_hues">Cinematic-01</option>
+            <option value="blue_noir">Cinematic-02</option>
+            <option value="horizons">Cinematic-03</option>
+          </optgroup>
+          <optgroup label="Travel">
+            <option value="travel_03">Travel-01</option>
+            <option value="travel_06">Travel-02</option>
+            <option value="travel_13">Travel-03</option>
+          </optgroup>
+          <optgroup label="Documentary">
+            <option value="Documentary_01">Documentary 01</option>
+            <option value="Documentary_02">Documentary 02</option>
+            <option value="Documentary_03">Documentary 03</option>
+          </optgroup>
+          <optgroup label="Dynamic Rangers">
+            <option value="DYNAMIC_RANGER_01">Dynamic Ranger 01</option>
+            <option value="DYNAMIC_RANGER_02">Dynamic Ranger 02</option>
+            <option value="DYNAMIC_RANGER_03">Dynamic Ranger 03</option>
+          </optgroup>
+          <optgroup label="Futuristic">
+            <option value="Euphoria">Euphoria</option>
+            <option value="Lava Lamp">Lava Lamp</option>
+            <option value="Nebula Flux">Nebula Flux</option>
+            <option value="Synesthesia">Synesthesia</option>
+          </optgroup>
+          <optgroup label="Monochrome">
+            <option value="kodak_trix_400">Kodak Tri-X 400</option>
+            <option value="kentmere">Kentmere 400</option>
+            <option value="agfa_apx_100">APX 100</option>
             <option value="ilford_hp5_plus_400">HP5 Plus 400</option>
             <option value="ilford_delta_400">Delta 400</option>
             <option value="ilford_pan_f_plus_50">Pan F Plus 50</option>
           </optgroup>
-          <optgroup label="OTHER">
-            <option value="CHROMATIC">Chromatic</option>
-            <option value="CLASSIC_NOIR">Classic Noir</option>
-            <option value="CROSS_PROCESS_01">Cross Process 01</option>
-            <option value="CROSS_PROCESS_02">Cross Process 02</option>
-            <option value="CROSS_PROCESS_03">Cross Process 03</option>
-            <option value="DIGITAL_TO_FILM">Digital to Film</option>
-            <option value="DYNAMIC_RANGER_01">Dynamic Ranger 01</option>
-            <option value="DYNAMIC_RANGER_02">Dynamic Ranger 02</option>
-            <option value="DYNAMIC_RANGER_03">Dynamic Ranger 03</option>
-            <option value="LOW_CON_35MM_FILM_01">Low Con 35mm Film 01</option>
-            <option value="MODERN_35MM_FILM_01">Modern 35mm Film 01</option>
-            <option value="SKINTONE_01">Skintone 01</option>
-            <option value="SKINTONE_02">Skintone 02</option>
-            <option value="SKINTONE_03">Skintone 03</option>
-          </optgroup>
         </select>
       </div>
       <div class="settings-group">
-        <label for="isoSlider">ISO</label>
-        <div class="iso-row">
-          <input type="range" id="isoSlider" min="0" max="4" value="0" />
-          <span id="isoValue">100</span>
+        <div class="slider-container">
+          <label for="isoSlider">Grain</label>
+          <input type="range" id="isoSlider" min="0" max="2" value="0" step="1">
+          <span id="isoValue">Light</span>
         </div>
       </div>
       <div class="settings-group">
-        <label for="contrastSlider">Push & Pull</label>
-        <div class="contrast-row">
-          <input type="range" id="contrastSlider" min="-50" max="30" value="0" />
+        <div class="slider-container">
+          <label for="contrastSlider">Contrast</label>
+          <input type="range" id="contrastSlider" min="-100" max="100" value="0">
+          <span id="contrastValue">0</span>
         </div>
       </div>
       <div class="settings-group">
-        <label for="exposureSlider">Exp.</label>
-        <div class="exposure-row">
-          <input type="range" id="exposureSlider" min="-2" max="2" step="0.01" value="0" />
+        <div class="slider-container">
+          <label for="exposureSlider">Exposure</label>
+          <input type="range" id="exposureSlider" min="-2" max="2" value="0" step="0.1">
+          <span id="exposureValue">0</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="slider-container">
+          <label for="lutIntensitySlider">LUT Intensity</label>
+          <input type="range" id="lutIntensitySlider" min="0" max="100" value="100">
+          <span id="intensityValue">100%</span>
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="slider-container">
+          <label for="blurSlider">Lens Blur</label>
+          <input type="range" id="blurSlider" min="0" max="100" value="0">
+          <span id="blurValue">0%</span>
         </div>
       </div>
       <div class="settings-group bottom-buttons">
@@ -106,6 +169,18 @@
         </button>
         <button id="resetBtn" class="reset-button" type="button">Reset</button>
       </div>
+    </div>
+  </div>
+  <div id="cropperModal" style="display:none; position:fixed; z-index:20000; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; flex-direction:column;">
+    <img id="cropperImage" style="max-width:96vw; max-height:60vh; display:block; margin: 40px auto 16px auto; background:#fff;" />
+    <div class="cropper-rotate-slider" style="width:90vw;max-width:400px;margin:0 auto 18px auto;display:flex;flex-direction:column;align-items:center;">
+      <label for="cropRotateSlider" style="color:#fff;font-weight:600;margin-bottom:6px;">Rotate</label>
+      <input type="range" id="cropRotateSlider" min="-180" max="180" value="0" step="1" style="width:100%;">
+      <span id="cropRotateValue" style="color:#fff;margin-top:4px;">0°</span>
+    </div>
+    <div class="cropper-modal-btns">
+      <button id="applyCropBtn" class="download-button">Apply Crop</button>
+      <button id="cancelCropBtn" class="cancel-crop-btn">Cancel</button>
     </div>
   </div>
   <script src="script.js"></script>
