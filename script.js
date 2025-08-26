@@ -223,7 +223,7 @@ function processImageEffects(ctx, width, height, isExport = false) {
 
   // Apply lens blur
   if (blurAmount > 0) {
-    applyLensBlur(ctx, width, height, blurAmount);
+    applyGaussianBlur(ctx, width, height, blurAmount);
   }
 
   // Apply enhanced grain
@@ -373,9 +373,9 @@ document.getElementById("downloadBtn").addEventListener("click", async () => {
 
     exportCtx.putImageData(imgData, 0, 0);
 
-    // Apply lens blur using the same function as preview
+    // Apply gaussian blur using the same function as preview
     if (blurAmount > 0) {
-      applyLensBlur(exportCtx, exportWidth, exportHeight, blurAmount);
+      applyGaussianBlur(exportCtx, exportWidth, exportHeight, blurAmount);
     }
 
     // Apply grain using the same function as preview
@@ -889,6 +889,78 @@ function applyFastBlur(ctx, width, height, radius) {
     
     ctx.putImageData(imgData, 0, 0);
   }
+}
+
+// Separable Gaussian blur to mimic defocus softness
+function applyGaussianBlur(ctx, width, height, amount) {
+  if (amount <= 0) return;
+
+  const maxRadius = isMobile ? 12 : 15; // cap for performance
+  const radius = Math.max(1, Math.round((amount / 100) * maxRadius));
+  if (radius <= 0) return;
+
+  // Build 1D Gaussian kernel
+  const sigma = Math.max(0.6, radius * 0.5);
+  const kernelSize = radius * 2 + 1;
+  const kernel = new Float32Array(kernelSize);
+  const twoSigmaSq = 2 * sigma * sigma;
+  let sum = 0;
+  for (let i = -radius, k = 0; i <= radius; i++, k++) {
+    const value = Math.exp(-(i * i) / twoSigmaSq);
+    kernel[k] = value;
+    sum += value;
+  }
+  for (let k = 0; k < kernel.length; k++) kernel[k] /= sum;
+
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const src = imgData.data;
+  const tmp = new Uint8ClampedArray(src.length);
+
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    const rowIndex = y * width * 4;
+    for (let x = 0; x < width; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let i = -radius; i <= radius; i++) {
+        const k = kernel[i + radius];
+        const nx = Math.min(Math.max(x + i, 0), width - 1);
+        const idx = rowIndex + nx * 4;
+        r += src[idx] * k;
+        g += src[idx + 1] * k;
+        b += src[idx + 2] * k;
+        a += src[idx + 3] * k;
+      }
+      const outIdx = rowIndex + x * 4;
+      tmp[outIdx] = r;
+      tmp[outIdx + 1] = g;
+      tmp[outIdx + 2] = b;
+      tmp[outIdx + 3] = a;
+    }
+  }
+
+  // Vertical pass
+  for (let x = 0; x < width; x++) {
+    const colOffset = x * 4;
+    for (let y = 0; y < height; y++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let i = -radius; i <= radius; i++) {
+        const k = kernel[i + radius];
+        const ny = Math.min(Math.max(y + i, 0), height - 1);
+        const idx = ny * width * 4 + colOffset;
+        r += tmp[idx] * k;
+        g += tmp[idx + 1] * k;
+        b += tmp[idx + 2] * k;
+        a += tmp[idx + 3] * k;
+      }
+      const outIdx = y * width * 4 + colOffset;
+      src[outIdx] = r;
+      src[outIdx + 1] = g;
+      src[outIdx + 2] = b;
+      src[outIdx + 3] = a;
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
 }
 
 // Add touch event handling for mobile
