@@ -895,7 +895,11 @@ function applyFastBlur(ctx, width, height, radius) {
 function applyGaussianBlur(ctx, width, height, amount) {
   if (amount <= 0) return;
 
-  const maxRadius = isMobile ? 12 : 15; // cap for performance
+  // Scale blur strength with image size so it's visible on large images
+  const baseMaxByImage = Math.round(Math.min(width, height) * (isMobile ? 0.015 : 0.02));
+  const hardCap = isMobile ? 32 : 64; // performance caps
+  const floorMin = isMobile ? 16 : 24; // ensure noticeable max even on small images
+  const maxRadius = Math.max(floorMin, Math.min(baseMaxByImage, hardCap));
   const radius = Math.max(1, Math.round((amount / 100) * maxRadius));
   if (radius <= 0) return;
 
